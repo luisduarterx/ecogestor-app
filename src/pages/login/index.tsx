@@ -4,36 +4,29 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useLoggedUser } from "../../context/useLoggedUser";
 
+import { useLogin } from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
+
 export function Login() {
-  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [error, setError] = useState("");
   const { setUser } = useLoggedUser();
   const navigate = useNavigate();
 
-  function handleSubmit(event: React.SubmitEvent) {
-    event.preventDefault();
-    setIsLoading(true);
-    setError("");
+  const { mutateAsync: loginUser, isPending } = useLogin();
 
-    setUser({
-      id: 1,
-      nome: "Luis Claudio",
-      email,
-      cargoID: 1,
-      permissoes: [
-        "dashboard:visualizar",
-        "pedidos:gerenciar",
-        "estoque:gerenciar",
-        "precos:gerenciar",
-        "financeiro:gerenciar",
-        "registros:gerenciar",
-      ],
-    });
-
-    setIsLoading(false);
-    navigate("/dashboard");
+  async function handleSubmit(event: React.SubmitEvent) {
+    try {
+      event.preventDefault();
+      const result = await loginUser({ email, senha });
+      setUser(result.user);
+      localStorage.setItem("sid", result.token);
+      navigate("/dashboard");
+    } catch (error) {
+      const apiErr = error as ApiError;
+      setError(apiErr.mensagem);
+    }
   }
   return (
     <div
@@ -128,10 +121,10 @@ export function Login() {
               <button
                 id="btn-login"
                 type="submit"
-                disabled={isLoading}
+                disabled={isPending}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-50 cursor-pointer"
               >
-                {isLoading ? (
+                {isPending ? (
                   <span className="flex items-center gap-2">
                     <svg
                       className="animate-spin h-5 w-5 text-slate-950"

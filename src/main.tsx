@@ -14,13 +14,13 @@ import { Precos } from "./pages/precos/index.tsx";
 import { Financeiro } from "./pages/financeiro/index.tsx";
 import { Registro } from "./pages/registros/index.tsx";
 import { LoggedUserProvider } from "./context/LoggedUser.tsx";
+import { ProviderQueryClient } from "./context/QueryClient.tsx";
+import { ProtectedRoute } from "./pages/ProtectedRoutes.tsx";
 
 const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <Login />,
-  },
-  {
+  {element:<ProtectedRoute/>,
+  children:[
+{
     path: "/dashboard",
     element: <Dashboard />,
   },
@@ -44,12 +44,21 @@ const router = createBrowserRouter([
     path: "/registros",
     element: <Registro />,
   },
+  ],
+},
+  {
+    path: "/",
+    element: <Login />,
+  },
+  
 ]);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <LoggedUserProvider>
-      <RouterProvider router={router} />
-    </LoggedUserProvider>
+    <ProviderQueryClient>
+      <LoggedUserProvider>
+        <RouterProvider router={router} />
+      </LoggedUserProvider>
+    </ProviderQueryClient>
   </StrictMode>,
 );

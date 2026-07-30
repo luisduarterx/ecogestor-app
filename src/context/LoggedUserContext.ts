@@ -12,6 +12,7 @@ export type LoggedUserContextType = {
   user: UserAuthenticated | null;
   setUser: (user: UserAuthenticated) => void;
   logout: () => void;
+  isAuthenticated: boolean;
 };
 
 export const LoggedUserContext = createContext<
