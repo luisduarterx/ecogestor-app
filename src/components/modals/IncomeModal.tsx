@@ -1,27 +1,63 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { ArrowUpRight, X } from "lucide-react";
 import { motion } from "motion/react";
 
-type IncomeCategory =
-  | "Venda de Materiais"
-  | "Prestação de Serviços"
-  | "Subsídios"
-  | "Outros";
+import {
+  useCreateFinancialEntry,
+  useFinancialAccounts,
+  useFinancialCategories,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 
 interface IncomeModalProps {
   setIsOpen: (value: boolean) => void;
 }
 
 export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
-  const bankAccounts = [];
+  const accountsQuery = useFinancialAccounts();
+  const categoriesQuery = useFinancialCategories("RECEITA");
+  const createEntry = useCreateFinancialEntry();
   const [error, setError] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [value, setValue] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
-  const [date, setDate] = useState("");
-  const [method, setMethod] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState("Pix");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (
+      description.trim().length < 3 ||
+      Number(value) <= 0 ||
+      !category ||
+      !bankAccountId ||
+      !date
+    ) {
+      setError("Preencha descrição, valor, categoria, conta e data.");
+      return;
+    }
+    try {
+      await createEntry.mutateAsync({
+        valor: Number(value),
+        descricao: `${description.trim()} — ${method}`.slice(0, 250),
+        titulo: description.trim().slice(0, 100),
+        tipo: "RECEBER",
+        categoria_id: Number(category),
+        vencimento: date,
+        baixar_agora: true,
+        conta_id: Number(bankAccountId),
+      });
+      setIsOpen(false);
+    } catch (requestError) {
+      setError(
+        (requestError as ApiError).mensagem ??
+          "Não foi possível lançar a receita.",
+      );
+    }
+  }
 
   return (
     <div
@@ -46,7 +82,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
           </button>
         </div>
 
-        <form onSubmit={() => {}} className="p-6 space-y-4">
+        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}
@@ -88,15 +124,13 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as IncomeCategory)}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
-                <option value="Venda de Materiais">Venda de Materiais</option>
-                <option value="Prestação de Serviços">
-                  Prestação de Serviços
-                </option>
-                <option value="Subsídios">Subsídios Governamentais</option>
-                <option value="Outros">Outras Fontes</option>
+                <option value="">Selecione...</option>
+                {(categoriesQuery.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>{item.nome}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -112,9 +146,9 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="">Selecione a conta...</option>
-                {bankAccounts.map((b) => (
+                {(accountsQuery.data ?? []).map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} (R$ {b.balance.toFixed(0)})
+                    {b.nome} (R$ {b.saldo_atual.toFixed(2)})
                   </option>
                 ))}
               </select>
@@ -161,9 +195,10 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
             </button>
             <button
               type="submit"
+              disabled={createEntry.isPending}
               className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Lançar Receita
+              {createEntry.isPending ? "Lançando..." : "Lançar Receita"}
             </button>
           </div>
         </form>

@@ -12,11 +12,24 @@ import {
   Search,
   Sliders,
   TrendingUp,
+  Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { LayoutBase } from "../../components/LayoutBase";
+import {
+  useCreateMaterial,
+  useCreateMaterialCategory,
+  useCreateTable,
+  useDeleteTable,
+  useMaterialCategories,
+  useMaterials,
+  useTable,
+  useTables,
+  useUpdateTable,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 export function Precos() {
   const handlePriceOverrideChange = (matName: string, value: string) => {
     setTablePricesEdit((prev) => ({
@@ -31,18 +44,6 @@ export function Precos() {
   const [editMinQty, setEditMinQty] = useState("");
   const [editError, setEditError] = useState("");
   const [priceTable, setPriceTable] = useState([]);
-  const [activeTable, setActiveTable] = useState({});
-  const [filteredPrices, setFilteredPrices] = useState([
-    {
-      sellPrice: 12,
-      buyPrice: 23,
-      id: 2,
-      materialName: "MATERIAL",
-      category: "CATEGORIO",
-      minQty: 2,
-      lastUpdated: "232323",
-    },
-  ]);
   const handleOpenEditModal = (item) => {
     setSelectedItemId(item.id);
     setEditBuyPrice(item.buyPrice.toString());
@@ -75,47 +76,282 @@ export function Precos() {
   const [newMatMinStock, setNewMatMinStock] = useState("500");
   const [newMatUnit, setNewMatUnit] = useState<"kg" | "ton">("kg");
   const [newMatColor, setNewMatColor] = useState("#10b981"); // Emerald 500 default
+  const [newMatBuyPrice, setNewMatBuyPrice] = useState("");
+  const [newMatSellPrice, setNewMatSellPrice] = useState("");
   const [materialFormError, setMaterialFormError] = useState("");
   const [materialFormSuccess, setMaterialFormSuccess] = useState("");
-  const [uniqueCategories, setUniqueCategories] = useState([]);
 
   // Category creation states
   const [newCategoryNameInput, setNewCategoryNameInput] = useState("");
   const [categoryFormError, setCategoryFormError] = useState("");
   const [categoryFormSuccess, setCategoryFormSuccess] = useState("");
-  const [selectedTableId, setSelectedTableId] = useState("TAB-001");
+  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [newTableName, setNewTableName] = useState("");
-  const [newTableDesc, setNewTableDesc] = useState("");
+  const [editingTableName, setEditingTableName] = useState("");
+  const [tableFormError, setTableFormError] = useState("");
+  const [deleteTableConfirmationOpen, setDeleteTableConfirmationOpen] =
+    useState(false);
   const [tablePricesEdit, setTablePricesEdit] = useState<
     Record<string, string>
   >({});
-  const [materials, setMaterials] = useState([
-    {
-      id: 2,
-      name: "MATERIAL",
-      category: "teste",
-      buyPrice: 23,
-      minStock: 234,
-      unity: "KG",
-    },
-  ]);
-  const [customPriceTables, setCustomPriceTables] = useState([
-    {
-      name: "padrao",
-      isDefault: false,
-      description: "FERRO VELHO",
-      id: 12,
-      buyPrices: [],
-    },
-    {
-      name: "padrao",
-      isDefault: true,
-      description: "FERRO VELHO",
-      id: 13,
-      buyPrices: [],
-    },
-  ]);
   const [tableEditMsg, setTableEditMsg] = useState("");
+  const [catalogView, setCatalogView] = useState<"materials" | "categories">(
+    "materials",
+  );
+  const categoriesQuery = useMaterialCategories();
+  const catalogMaterialsQuery = useMaterials();
+  const createCategory = useCreateMaterialCategory();
+  const createMaterial = useCreateMaterial();
+  const tablesQuery = useTables();
+  const defaultTable = tablesQuery.data?.find((table) => table.padrao);
+  const defaultTableQuery = useTable(defaultTable?.id);
+  const selectedTableQuery = useTable(selectedTableId ?? undefined);
+  const createTable = useCreateTable();
+  const updateTable = useUpdateTable(selectedTableId ?? undefined);
+  const deleteTable = useDeleteTable();
+  const managedTables = tablesQuery.data ?? [];
+  const selectedTable = managedTables.find(
+    (table) => table.id === selectedTableId,
+  );
+
+  useEffect(() => {
+    if (!selectedTableQuery.data || !catalogMaterialsQuery.data) return;
+
+    setEditingTableName(selectedTableQuery.data.nome);
+    setTablePricesEdit(
+      Object.fromEntries(
+        catalogMaterialsQuery.data.map((material) => {
+          const customPrice = selectedTableQuery.data?.materiais.find(
+            (price) => price.materialID === material.id,
+          )?.preco_compra;
+          const basePrice = defaultTableQuery.data?.materiais.find(
+            (price) => price.materialID === material.id,
+          )?.preco_compra;
+          return [material.id, String(customPrice ?? basePrice ?? "")];
+        }),
+      ),
+    );
+  }, [
+    catalogMaterialsQuery.data,
+    defaultTableQuery.data,
+    selectedTableQuery.data,
+  ]);
+
+  const defaultTablePrices = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
+
+    return (defaultTableQuery.data?.materiais ?? [])
+      .map((tablePrice) => {
+        const material = catalogMaterialsQuery.data?.find(
+          (item) => item.id === tablePrice.materialID,
+        );
+        if (!material) return null;
+
+        return {
+          id: material.id,
+          materialName: material.nome,
+          category: material.categoria.nome,
+          buyPrice: tablePrice.preco_compra,
+          sellPrice: material.preco_venda,
+          lastUpdated: new Intl.DateTimeFormat("pt-BR").format(
+            new Date(material.editado_em),
+          ),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .filter(
+        (item) =>
+          !normalizedSearch ||
+          item.materialName
+            .toLocaleLowerCase("pt-BR")
+            .includes(normalizedSearch),
+      )
+      .filter(
+        (item) => categoryFilter === "all" || item.category === categoryFilter,
+      );
+  }, [
+    catalogMaterialsQuery.data,
+    categoryFilter,
+    defaultTableQuery.data,
+    searchTerm,
+  ]);
+
+  async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCategoryFormError("");
+    setCategoryFormSuccess("");
+
+    if (newCategoryNameInput.trim().length < 3) {
+      setCategoryFormError("Informe um nome com pelo menos 3 caracteres.");
+      return;
+    }
+
+    try {
+      const category = await createCategory.mutateAsync(
+        newCategoryNameInput.trim(),
+      );
+      setNewCategoryNameInput("");
+      setNewMatCategory(String(category.id));
+      setCategoryFormSuccess(`Categoria ${category.nome} criada com sucesso.`);
+    } catch (error) {
+      setCategoryFormError(
+        (error as ApiError).mensagem ?? "Não foi possível criar a categoria.",
+      );
+    }
+  }
+
+  async function handleCreateMaterial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMaterialFormError("");
+    setMaterialFormSuccess("");
+
+    try {
+      let categoryID = Number(newMatCategory);
+      if (isNewCategory) {
+        if (customCategoryName.trim().length < 3) {
+          setMaterialFormError("Informe o nome da nova categoria.");
+          return;
+        }
+        const category = await createCategory.mutateAsync(
+          customCategoryName.trim(),
+        );
+        categoryID = category.id;
+      }
+
+      if (
+        !categoryID ||
+        newMatName.trim().length < 3 ||
+        Number(newMatBuyPrice) < 0 ||
+        Number(newMatSellPrice) < 0 ||
+        newMatBuyPrice === "" ||
+        newMatSellPrice === ""
+      ) {
+        setMaterialFormError(
+          "Preencha nome, categoria, preço de compra e preço de venda.",
+        );
+        return;
+      }
+
+      const material = await createMaterial.mutateAsync({
+        catID: categoryID,
+        nome: newMatName.trim(),
+        preco_compra: Number(newMatBuyPrice),
+        preco_venda: Number(newMatSellPrice),
+      });
+
+      setNewMatName("");
+      setNewMatBuyPrice("");
+      setNewMatSellPrice("");
+      setCustomCategoryName("");
+      setIsNewCategory(false);
+      setMaterialFormSuccess(`Material ${material.nome} criado com sucesso.`);
+    } catch (error) {
+      setMaterialFormError(
+        (error as ApiError).mensagem ?? "Não foi possível criar o material.",
+      );
+    }
+  }
+
+  function tableMaterialsPayload() {
+    return (catalogMaterialsQuery.data ?? []).map((material) => ({
+      id: material.id,
+      preco_compra: Number(tablePricesEdit[String(material.id)]),
+    }));
+  }
+
+  async function handleCreateTable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTableFormError("");
+    setTableEditMsg("");
+
+    if (newTableName.trim().length < 3) {
+      setTableFormError("Informe um nome com pelo menos 3 caracteres.");
+      return;
+    }
+
+    const initialPrices = (catalogMaterialsQuery.data ?? [])
+      .map((material) => {
+        const price = defaultTableQuery.data?.materiais.find(
+          (item) => item.materialID === material.id,
+        )?.preco_compra;
+        return price && price > 0
+          ? { id: material.id, preco_compra: price }
+          : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    try {
+      const table = await createTable.mutateAsync({
+        nome: newTableName.trim(),
+        padrao: !defaultTable,
+        materiais: initialPrices,
+      });
+      setNewTableName("");
+      setSelectedTableId(table.id);
+      setTableEditMsg(`Tabela ${table.nome} criada com sucesso.`);
+    } catch (error) {
+      setTableFormError(
+        (error as ApiError).mensagem ?? "Não foi possível criar a tabela.",
+      );
+    }
+  }
+
+  async function handleSaveTable() {
+    setTableFormError("");
+    setTableEditMsg("");
+    const tableMaterials = tableMaterialsPayload();
+
+    if (
+      selectedTableId === null ||
+      editingTableName.trim().length < 3 ||
+      tableMaterials.some(
+        (material) =>
+          !Number.isFinite(material.preco_compra) ||
+          material.preco_compra <= 0,
+      )
+    ) {
+      setTableFormError(
+        "Informe o nome e um preço de compra positivo para todos os materiais.",
+      );
+      return;
+    }
+
+    try {
+      await updateTable.mutateAsync({
+        nome: editingTableName.trim(),
+        materiais: tableMaterials,
+      });
+      setTableEditMsg("Tabela e preços atualizados com sucesso.");
+    } catch (error) {
+      setTableFormError(
+        (error as ApiError).mensagem ?? "Não foi possível atualizar a tabela.",
+      );
+    }
+  }
+
+  async function handleDeleteTable() {
+    if (selectedTableId === null) return;
+    if (selectedTable?.padrao) {
+      setTableFormError("A tabela padrão não pode ser excluída.");
+      return;
+    }
+    setTableFormError("");
+    setTableEditMsg("");
+
+    try {
+      await deleteTable.mutateAsync(selectedTableId);
+      setSelectedTableId(null);
+      setEditingTableName("");
+      setTablePricesEdit({});
+      setDeleteTableConfirmationOpen(false);
+    } catch (error) {
+      setTableFormError(
+        (error as ApiError).mensagem ?? "Não foi possível excluir a tabela.",
+      );
+      setDeleteTableConfirmationOpen(false);
+    }
+  }
+
   return (
     <LayoutBase activeTab="precos" pageTitle="PRECOS">
       <div className="space-y-6 font-sans">
@@ -195,9 +431,9 @@ export function Precos() {
                 className="bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="all">Todas as Categorias</option>
-                {uniqueCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {(categoriesQuery.data ?? []).map((category) => (
+                  <option key={category.id} value={category.nome}>
+                    {category.nome}
                   </option>
                 ))}
               </select>
@@ -208,7 +444,7 @@ export function Precos() {
               <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-slate-100">
-                    Margens Operacionais & Tarifas do Pátio
+                    {defaultTable?.nome ?? "Tabela Padrão do Pátio"}
                   </h3>
                   <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md mt-1 inline-block">
                     Preços vigentes para público geral
@@ -246,7 +482,7 @@ export function Precos() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
-                    {filteredPrices.map((item) => {
+                    {defaultTablePrices.map((item) => {
                       const profitMargin = item.sellPrice - item.buyPrice;
 
                       const marginPercent =
@@ -283,7 +519,7 @@ export function Precos() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-right font-mono">
-                            {item.minQty.toLocaleString("pt-BR")} kg
+                            —
                           </td>
                           <td className="py-3.5 px-4 text-center font-mono text-slate-500">
                             {item.lastUpdated}
@@ -301,16 +537,20 @@ export function Precos() {
                       );
                     })}
 
-                    {filteredPrices.length === 0 && (
+                    {!tablesQuery.isPending &&
+                      !defaultTableQuery.isPending &&
+                      defaultTablePrices.length === 0 && (
                       <tr>
                         <td
                           colSpan={9}
                           className="py-8 text-center text-slate-500 text-xs"
                         >
-                          Nenhum material encontrado para os filtros ativos.
+                          {defaultTable
+                            ? "Nenhum material encontrado para os filtros ativos."
+                            : "Nenhuma tabela padrão foi encontrada."}
                         </td>
                       </tr>
-                    )}
+                      )}
                   </tbody>
                 </table>
               </div>
@@ -346,7 +586,10 @@ export function Precos() {
                   </div>
                 )}
 
-                <form onSubmit={() => {}} className="space-y-4 text-xs">
+                <form
+                  onSubmit={(event) => void handleCreateMaterial(event)}
+                  className="space-y-4 text-xs"
+                >
                   {/* Material Name */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -394,17 +637,50 @@ export function Precos() {
                       </div>
                     ) : (
                       <select
+                        required
                         value={newMatCategory}
                         onChange={(e) => setNewMatCategory(e.target.value)}
                         className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                       >
-                        {uniqueCategories.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
+                        <option value="">Selecione...</option>
+                        {(categoriesQuery.data ?? []).map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.nome}
                           </option>
                         ))}
                       </select>
                     )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Preço de compra (R$ / kg) *
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newMatBuyPrice}
+                        onChange={(e) => setNewMatBuyPrice(e.target.value)}
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Preço de venda (R$ / kg) *
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newMatSellPrice}
+                        onChange={(e) => setNewMatSellPrice(e.target.value)}
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                      />
+                    </div>
                   </div>
 
                   {/* Unit & Min stock */}
@@ -415,7 +691,9 @@ export function Precos() {
                       </label>
                       <select
                         value={newMatUnit}
-                        onChange={(e) => setNewMatUnit(e.target.value as any)}
+                        onChange={(e) =>
+                          setNewMatUnit(e.target.value as "kg" | "ton")
+                        }
                         className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                       >
                         <option value="kg">Quilos (kg)</option>
@@ -457,9 +735,15 @@ export function Precos() {
                   {/* Submit */}
                   <button
                     type="submit"
+                    disabled={
+                      createMaterial.isPending || createCategory.isPending
+                    }
                     className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
                   >
-                    <Plus className="h-4 w-4" /> Cadastrar Material
+                    <Plus className="h-4 w-4" />
+                    {createMaterial.isPending
+                      ? "Cadastrando..."
+                      : "Cadastrar Material"}
                   </button>
                 </form>
               </div>
@@ -485,7 +769,10 @@ export function Precos() {
                   </div>
                 )}
 
-                <form onSubmit={() => {}} className="space-y-4 text-xs">
+                <form
+                  onSubmit={(event) => void handleCreateCategory(event)}
+                  className="space-y-4 text-xs"
+                >
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                       Nome da Categoria *
@@ -502,9 +789,13 @@ export function Precos() {
 
                   <button
                     type="submit"
+                    disabled={createCategory.isPending}
                     className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
                   >
-                    <Plus className="h-4 w-4" /> Criar Categoria
+                    <Plus className="h-4 w-4" />
+                    {createCategory.isPending
+                      ? "Criando..."
+                      : "Criar Categoria"}
                   </button>
                 </form>
               </div>
@@ -512,60 +803,120 @@ export function Precos() {
 
             {/* Current Catalogue Grid (Right Column, spans 2) */}
             <div className="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xs">
-              <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/15 flex items-center justify-between">
-                <h3 className="font-bold text-slate-100">
-                  Catálogo de Materiais Cadastrados
-                </h3>
-                <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded-md">
-                  {materials.length} materiais cadastrados
-                </span>
+              <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-100">
+                    Catálogo de Materiais Cadastrados
+                  </h3>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    {catalogView === "materials"
+                      ? `${catalogMaterialsQuery.data?.length ?? 0} materiais cadastrados`
+                      : `${categoriesQuery.data?.length ?? 0} categorias cadastradas`}
+                  </span>
+                </div>
+                <div className="flex rounded-lg border border-slate-800 bg-slate-950 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCatalogView("materials")}
+                    className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${
+                      catalogView === "materials"
+                        ? "bg-emerald-400 text-slate-950"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Materiais
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogView("categories")}
+                    className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${
+                      catalogView === "categories"
+                        ? "bg-emerald-400 text-slate-950"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Categorias
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-400">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-950/10 text-slate-500 font-mono uppercase tracking-wider">
-                      <th className="py-3 px-4">Código</th>
-                      <th className="py-3 px-4">Nome do Material</th>
-                      <th className="py-3 px-4">Categoria</th>
-                      <th className="py-3 px-4 text-center">Unid.</th>
-                      <th className="py-3 px-4 text-right">Estoque Mínimo</th>
-                      <th className="py-3 px-4 text-center">Cor Ativa</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-medium">
-                    {materials.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="hover:bg-slate-800/10 transition-colors"
-                      >
-                        <td className="py-3 px-4 font-mono text-slate-500 font-bold">
-                          {m.id}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-slate-200">
-                          {m.name}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono">
-                            {m.category}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center font-mono uppercase">
-                          {m.unit}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-slate-300">
-                          {m.minStock.toLocaleString("pt-BR")} kg
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="inline-block w-4 h-4 rounded-full border border-slate-800"
-                            style={{ backgroundColor: m.color }}
-                          />
-                        </td>
+                {catalogView === "materials" ? (
+                  <table className="w-full text-left text-xs text-slate-400">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/10 text-slate-500 font-mono uppercase tracking-wider">
+                        <th className="py-3 px-4">Código</th>
+                        <th className="py-3 px-4">Nome do Material</th>
+                        <th className="py-3 px-4">Categoria</th>
+                        <th className="py-3 px-4 text-right">Preço Compra</th>
+                        <th className="py-3 px-4 text-right">Preço Venda</th>
+                        <th className="py-3 px-4 text-center">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                      {(catalogMaterialsQuery.data ?? []).map((material) => (
+                        <tr
+                          key={material.id}
+                          className="hover:bg-slate-800/10 transition-colors"
+                        >
+                          <td className="py-3 px-4 font-mono text-slate-500 font-bold">
+                            {material.id}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-200">
+                            {material.nome}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono">
+                              {material.categoria.nome}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-300">
+                            R$ {material.preco_compra.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-emerald-400">
+                            R$ {material.preco_venda.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
+                              ATIVO
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-left text-xs text-slate-400">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/10 text-slate-500 font-mono uppercase tracking-wider">
+                        <th className="py-3 px-4">Código</th>
+                        <th className="py-3 px-4">Nome da Categoria</th>
+                        <th className="py-3 px-4 text-right">Materiais</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                      {(categoriesQuery.data ?? []).map((category) => (
+                        <tr
+                          key={category.id}
+                          className="hover:bg-slate-800/10 transition-colors"
+                        >
+                          <td className="py-3 px-4 font-mono font-bold text-slate-500">
+                            {category.id}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-200">
+                            {category.nome}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-300">
+                            {(catalogMaterialsQuery.data ?? []).filter(
+                              (material) =>
+                                material.categoria.id === category.id,
+                            ).length}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </div>
@@ -582,10 +933,18 @@ export function Precos() {
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
                 <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
                   <FolderPlus className="h-4 w-4 text-emerald-400" />
-                  Criar Nova Tabela Especial
+                  Criar Nova Tabela
                 </h3>
 
-                <form onSubmit={() => {}} className="space-y-4 text-xs">
+                <form
+                  onSubmit={(event) => void handleCreateTable(event)}
+                  className="space-y-4 text-xs"
+                >
+                  {tableFormError && (
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
+                      {tableFormError}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                       Nome Comercial da Tabela *
@@ -599,24 +958,13 @@ export function Precos() {
                       className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Descrição / Justificativa Comercial
-                    </label>
-                    <textarea
-                      value={newTableDesc}
-                      onChange={(e) => setNewTableDesc(e.target.value)}
-                      placeholder="Ex: Aplicada a parceiros com faturamento acima de 10 toneladas por mês."
-                      rows={2}
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none"
-                    />
-                  </div>
-
                   <button
                     type="submit"
+                    disabled={createTable.isPending}
                     className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <Plus className="h-4 w-4" /> Criar Tabela
+                    <Plus className="h-4 w-4" />
+                    {createTable.isPending ? "Criando..." : "Criar Tabela"}
                   </button>
                 </form>
               </div>
@@ -628,7 +976,7 @@ export function Precos() {
                 </h3>
 
                 <div className="space-y-2">
-                  {customPriceTables.map((tbl) => (
+                  {managedTables.map((tbl) => (
                     <button
                       key={tbl.id}
                       onClick={() => setSelectedTableId(tbl.id)}
@@ -640,19 +988,16 @@ export function Precos() {
                     >
                       <div className="flex items-center justify-between w-full">
                         <span className="font-bold text-slate-200">
-                          {tbl.name}
+                          {tbl.nome}
                         </span>
                         <span className="text-[9px] font-mono bg-slate-800 px-2 py-0.5 rounded-md text-slate-400 font-bold">
-                          {tbl.isDefault ? "PADRÃO" : tbl.id}
+                          {tbl.padrao ? "PADRÃO" : `#${tbl.id}`}
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-400">
-                        {tbl.description}
-                      </p>
                       <span className="text-[10px] text-emerald-400 font-bold mt-1">
-                        {tbl.isDefault
-                          ? "Preço Padrão do Pátio"
-                          : `${Object.keys(tbl.buyPrices).length} tarifas especiais configuradas`}
+                        {tbl.padrao ? "Tabela geral do pátio" : "Tabela de fornecedor"}
+                        {" · "}
+                        {new Intl.DateTimeFormat("pt-BR").format(new Date(tbl.updatedAt))}
                       </span>
                     </button>
                   ))}
@@ -668,14 +1013,21 @@ export function Precos() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                        Gerenciador de Tarifas Especiais
+                        Gerenciador de Tabelas e Tarifas
                       </span>
-                      <h3 className="text-md font-bold text-slate-100 mt-0.5">
-                        {activeTable?.name}
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {activeTable?.description}
-                      </p>
+                      {selectedTableId !== null ? (
+                        <input
+                          value={editingTableName}
+                          onChange={(event) =>
+                            setEditingTableName(event.target.value)
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-bold text-slate-100"
+                        />
+                      ) : (
+                        <h3 className="mt-1 text-sm font-bold text-slate-400">
+                          Selecione uma tabela para gerenciar
+                        </h3>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
@@ -687,17 +1039,16 @@ export function Precos() {
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPrintIsCustom(true);
-                          setIsPrintModalOpen(true);
-                        }}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-all border border-slate-700 hover:border-slate-600 select-none cursor-pointer"
-                      >
-                        <Printer className="h-4 w-4 text-emerald-400" />
-                        Compartilhar / Imprimir
-                      </button>
+                      {selectedTableId !== null && !selectedTable?.padrao && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTableConfirmationOpen(true)}
+                          disabled={deleteTable.isPending}
+                          className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500 hover:text-slate-950 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" /> Excluir
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -721,16 +1072,14 @@ export function Precos() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-medium">
-                      {materials.map((mat) => {
-                        const basePriceItem = priceTable.find(
-                          (p) => p.materialName === mat.name,
-                        );
-                        const basePrice = basePriceItem
-                          ? basePriceItem.buyPrice
-                          : 1.0;
+                      {(catalogMaterialsQuery.data ?? []).map((mat) => {
+                        const basePrice =
+                          defaultTableQuery.data?.materiais.find(
+                            (price) => price.materialID === mat.id,
+                          )?.preco_compra ?? 0;
 
                         const overridePriceValue =
-                          tablePricesEdit[mat.name] || "";
+                          tablePricesEdit[String(mat.id)] || "";
                         const hasOverride = overridePriceValue.trim() !== "";
 
                         return (
@@ -739,20 +1088,20 @@ export function Precos() {
                             className="hover:bg-slate-800/10 transition-colors"
                           >
                             <td className="py-3 px-4 font-bold text-slate-200">
-                              {mat.name}
+                              {mat.nome}
                             </td>
                             <td className="py-3 px-4">
                               <span className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono">
-                                {mat.category}
+                                {mat.categoria.nome}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right font-mono text-slate-400">
                               R$ {basePrice.toFixed(2)}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              {activeTable?.isDefault ? (
+                              {selectedTableId === null ? (
                                 <span className="text-slate-500 text-[11px] italic">
-                                  Imutável na tabela base
+                                  Selecione uma tabela
                                 </span>
                               ) : (
                                 <div className="inline-flex items-center gap-2">
@@ -766,7 +1115,7 @@ export function Precos() {
                                     value={overridePriceValue}
                                     onChange={(e) =>
                                       handlePriceOverrideChange(
-                                        mat.name,
+                                        String(mat.id),
                                         e.target.value,
                                       )
                                     }
@@ -776,8 +1125,10 @@ export function Precos() {
                               )}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              {activeTable?.isDefault ? (
-                                <span className="text-slate-500">Padrão</span>
+                              {selectedTable?.padrao ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  Preço Padrão
+                                </span>
                               ) : hasOverride ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                   Preço Especial
@@ -797,17 +1148,77 @@ export function Precos() {
               </div>
 
               {/* Save Button Footer */}
-              {!activeTable?.isDefault && (
+              {selectedTableId !== null && (
                 <div className="p-4 border-t border-slate-800 bg-slate-950/15 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => void handleSaveTable()}
+                    disabled={updateTable.isPending}
                     className="px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-md cursor-pointer flex items-center gap-2"
                   >
-                    <Save className="h-4 w-4" /> Salvar Alterações da Tabela
+                    <Save className="h-4 w-4" />
+                    {updateTable.isPending
+                      ? "Salvando..."
+                      : "Salvar Alterações da Tabela"}
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {deleteTableConfirmationOpen && selectedTable && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-table-title"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3
+                    id="delete-table-title"
+                    className="text-base font-bold text-slate-100"
+                  >
+                    Excluir tabela?
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    A tabela <strong className="text-slate-200">{selectedTable.nome}</strong>{" "}
+                    e todos os preços de compra vinculados a ela serão
+                    removidos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTableConfirmationOpen(false)}
+                  disabled={deleteTable.isPending}
+                  aria-label="Fechar confirmação"
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTableConfirmationOpen(false)}
+                  disabled={deleteTable.isPending}
+                  className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold uppercase text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteTable()}
+                  disabled={deleteTable.isPending}
+                  className="flex items-center gap-2 rounded-xl bg-rose-400 px-4 py-2.5 text-xs font-bold uppercase text-slate-950 hover:bg-rose-300 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleteTable.isPending ? "Excluindo..." : "Excluir tabela"}
+                </button>
+              </div>
             </div>
           </div>
         )}

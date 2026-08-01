@@ -1,6 +1,11 @@
-import { use, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { RefreshCw, X } from "lucide-react";
+import {
+  useCreateInventoryConversion,
+  useInventoryBalances,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 interface InventoryConversionModalProps {
   setIsConversionModalOpen: (value: boolean) => void;
   onClose: () => void;
@@ -9,17 +14,54 @@ export default function InventoryConversionModal({
   setIsConversionModalOpen,
   onClose,
 }: InventoryConversionModalProps) {
-  async function handleProcessConversion() {
-    alert("processado");
-    onClose();
-  }
   const [conversionError, setConversionError] = useState("");
   const [sourceMatId, setSourceMatId] = useState("");
   const [sourceQty, setSourceQty] = useState("");
-  const [materials, setMaterials] = useState([]);
   const [targetMatId, setTargetMatId] = useState("");
   const [targetQty, setTargetQty] = useState("");
   const [conversionNotes, setConversionNotes] = useState("");
+  const balancesQuery = useInventoryBalances();
+  const createConversion = useCreateInventoryConversion();
+
+  function closeModal() {
+    setIsConversionModalOpen(false);
+    onClose();
+  }
+
+  async function handleProcessConversion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setConversionError("");
+
+    if (
+      !sourceMatId ||
+      !targetMatId ||
+      sourceMatId === targetMatId ||
+      Number(sourceQty) <= 0 ||
+      Number(targetQty) <= 0 ||
+      conversionNotes.trim().length < 3
+    ) {
+      setConversionError(
+        "Selecione materiais diferentes e informe pesos e justificativa.",
+      );
+      return;
+    }
+
+    try {
+      await createConversion.mutateAsync({
+        materialOrigemID: Number(sourceMatId),
+        materialDestinoID: Number(targetMatId),
+        quantidadeOrigem: Number(sourceQty),
+        quantidadeDestino: Number(targetQty),
+        descricao: conversionNotes.trim(),
+      });
+      closeModal();
+    } catch (error) {
+      setConversionError(
+        (error as ApiError).mensagem ??
+          "Não foi possível processar a conversão.",
+      );
+    }
+  }
   return (
     <div
       id="modal-conversao"
@@ -38,7 +80,7 @@ export default function InventoryConversionModal({
             </h3>
           </div>
           <button
-            onClick={() => setIsConversionModalOpen(false)}
+            onClick={closeModal}
             className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer"
           >
             <X className="h-5 w-5" />
@@ -73,9 +115,9 @@ export default function InventoryConversionModal({
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-sky-400"
               >
                 <option value="">Selecione...</option>
-                {materials.map((m) => (
+                {(balancesQuery.data?.dados ?? []).map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.stock} kg)
+                    {m.nome} ({m.saldo.toLocaleString("pt-BR")} kg)
                   </option>
                 ))}
               </select>
@@ -106,9 +148,9 @@ export default function InventoryConversionModal({
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-sky-400"
               >
                 <option value="">Selecione...</option>
-                {materials.map((m) => (
+                {(balancesQuery.data?.dados ?? []).map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name}
+                    {m.nome}
                   </option>
                 ))}
               </select>
@@ -163,16 +205,19 @@ export default function InventoryConversionModal({
           <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsConversionModalOpen(false)}
+              onClick={closeModal}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
+              disabled={createConversion.isPending || balancesQuery.isPending}
               className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Processar Lote
+              {createConversion.isPending
+                ? "Processando..."
+                : "Processar Lote"}
             </button>
           </div>
         </form>

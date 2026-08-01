@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
 import {
   DollarSign,
@@ -31,10 +31,17 @@ import ReconcileModal from "../../components/modals/ReconcileModal";
 import IncomeModal from "../../components/modals/IncomeModal";
 import ExpenseModal from "../../components/modals/ExpenseModal";
 import UndoModal from "../../components/modals/UndoModal";
+import {
+  useCashReconciliation,
+  useCashSessions,
+  useFinancialAccounts,
+  useFinancialMovements,
+} from "../../utils/queries";
+import { useLoggedUser } from "../../context/useLoggedUser";
 
 // --- CASH REGISTER (CONTROLE DE CAIXA DIÁRIO) TYPES ---
 interface CashSession {
-  id: string;
+  id: number;
   status: "aberto" | "fechado";
   openedAt: string; // ISO String
   closedAt?: string; // ISO String
@@ -47,6 +54,17 @@ interface CashSession {
   bankAccountId: string;
   bankAccountName: string;
 }
+
+interface FinancialOperationLog {
+  id: string;
+  date: string;
+  type: "income" | "expense";
+  description: string;
+  account: string;
+  category: string;
+  value: number;
+  status: "Líquido" | "Pendente";
+}
 export function Financeiro() {
   const [searchTerm, setSearchTerm] = useState("");
   const [flowFilter, setFlowFilter] = useState<"all" | "income" | "expense">(
@@ -54,88 +72,116 @@ export function Financeiro() {
   );
 
   // --- CASH REGISTER STATE & LOCAL PERSISTENCE ---
-  const [cashSessions, setCashSessions] = useState<CashSession[]>(() => {
-    const saved = localStorage.getItem("ecogestor_cash_sessions");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
+  const cashReconciliationQuery = useCashReconciliation();
+  const cashSessionsQuery = useCashSessions();
+  const financialAccountsQuery = useFinancialAccounts();
+  const financialMovementsQuery = useFinancialMovements();
+  const { user } = useLoggedUser();
+  const defaultApiAccount = financialAccountsQuery.data?.find(
+    (account) => account.conta_padrao,
+  );
+  const activeSession = cashReconciliationQuery.data
+    ? {
+        id: cashReconciliationQuery.data.id,
+        openedAt: cashReconciliationQuery.data.data_abertura,
+        openedBy: user?.nome ?? "Usuário autenticado",
+        initialBalance: cashReconciliationQuery.data.valor_abertura,
+        expectedBalance: cashReconciliationQuery.data.valor_esperado,
+        bankAccountId: String(defaultApiAccount?.id ?? ""),
+        bankAccountName: defaultApiAccount?.nome ?? "Conta padrão",
       }
-    }
-    return [];
-  });
-
-  const [activeSession, setActiveSession] = useState({
-    id: 2,
-    openedAt: 21233,
-    openedBy: "LUIS",
-    initialBalance: 2009,
-  });
-  const activeSessionTransactions = [];
+    : null;
+  const activeSessionTransactions = (
+    cashReconciliationQuery.data?.movimentacoes ?? []
+  )
+    .filter(
+      (movement) =>
+        movement.caixa_id === cashReconciliationQuery.data?.id,
+    )
+    .map((movement) => ({
+      id: movement.id,
+      date: `Caixa #${movement.caixa_id}`,
+      type: movement.direcao === "ENTRADA" ? ("entrada" as const) : ("saída" as const),
+      description: movement.descricao,
+      category: movement.origem.replaceAll("_", " "),
+      value: movement.valor,
+    }));
+  const cashSessions: CashSession[] = (cashSessionsQuery.data ?? [])
+    .filter((cash) => cash.status === "FECHADO")
+    .map((cash) => ({
+      id: cash.id,
+      status: "fechado",
+      openedAt: cash.aberto_em,
+      closedAt: cash.fechado_em,
+      openedBy: cash.usuario_abertura?.nome ?? "Não informado",
+      initialBalance: cash.saldo_inicial,
+      expectedBalance: cash.saldo_final_sistema ?? 0,
+      actualBalance: cash.saldo_final_informado,
+      discrepancy: cash.diferenca,
+      notes: cash.observacao_fechamento,
+      bankAccountId: String(cash.conta_id),
+      bankAccountName: cash.conta?.nome ?? "Conta não informada",
+    }));
 
   // Modal open controllers
   const [isCashOpenModalOpen, setIsCashOpenModalOpen] = useState(false);
   const [isCashCloseModalOpen, setIsCashCloseModalOpen] = useState(false);
 
-  // Opening form states
-  const [cashOpenOperator, setCashOpenOperator] = useState("Operador de Caixa");
-  const [cashOpenBankAccountId, setCashOpenBankAccountId] = useState("");
-  const [cashOpenInitialBalance, setCashOpenInitialBalance] = useState("");
-
-  // Closing form states
-  const [cashCloseActualBalance, setCashCloseActualBalance] = useState("");
-  const [cashCloseNotes, setCashCloseNotes] = useState("");
-  const [cashCloseError, setCashCloseError] = useState("");
-  const totalBalance = 0;
-  const totalIncomes = 0;
-  const totalExpenses = 0;
-  const filteredLog = [];
-  // Persist cash register states to local storage
-  useEffect(() => {
-    localStorage.setItem(
-      "ecogestor_cash_sessions",
-      JSON.stringify(cashSessions),
+  const totalBalance = (financialAccountsQuery.data ?? []).reduce(
+    (total, account) => total + account.saldo_atual,
+    0,
+  );
+  const operationLog = useMemo<FinancialOperationLog[]>(
+    () =>
+      (financialMovementsQuery.data?.dados ?? []).map((movement) => ({
+        id: `M-${movement.id}`,
+        date: new Intl.DateTimeFormat("pt-BR", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(movement.criado_em)),
+        type:
+          movement.direcao === "ENTRADA"
+            ? ("income" as const)
+            : ("expense" as const),
+        description: movement.descricao,
+        account: movement.conta?.nome ?? `Conta #${movement.conta_id}`,
+        category: movement.origem.replaceAll("_", " "),
+        value: movement.valor,
+        status: "Líquido" as const,
+      })),
+    [financialMovementsQuery.data],
+  );
+  const totalIncomes = operationLog
+    .filter((operation) => operation.type === "income")
+    .reduce((total, operation) => total + operation.value, 0);
+  const totalExpenses = operationLog
+    .filter((operation) => operation.type === "expense")
+    .reduce((total, operation) => total + operation.value, 0);
+  const filteredLog = operationLog.filter((operation) => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
+    return (
+      (flowFilter === "all" || operation.type === flowFilter) &&
+      (!normalizedSearch ||
+        operation.description
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedSearch) ||
+        operation.account
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedSearch) ||
+        operation.category
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedSearch))
     );
-  }, [cashSessions]);
-
-  useEffect(() => {
-    if (activeSession) {
-      localStorage.setItem(
-        "ecogestor_active_cash_session",
-        JSON.stringify(activeSession),
-      );
-    } else {
-      localStorage.removeItem("ecogestor_active_cash_session");
-    }
-  }, [activeSession]);
-
+  });
   // Helper to filter bank accounts representing physical Cash
 
-  const bankAccounts = [
-    {
-      id: "BANC-001",
-      name: "Banco do Brasil - Principal",
-      bankName: "Banco do Brasil S.A.",
-      balance: 84250.0,
-      color: "bg-yellow-50 text-yellow-800 border-yellow-200",
-    },
-    {
-      id: "BANC-002",
-      name: "Itaú Unibanco - Operacional",
-      bankName: "Itaú Unibanco S.A.",
-      balance: 45600.0,
-      color: "bg-orange-50 text-orange-800 border-orange-200",
-    },
-  ];
-
-  const defaultCashAccount = {
-    id: "BANC-002",
-    name: "Itaú Unibanco - Operacional",
-    bankName: "Itaú Unibanco S.A.",
-    balance: 45600.0,
-    color: "bg-orange-50 text-orange-800 border-orange-200",
-  };
+  const bankAccounts = (financialAccountsQuery.data ?? []).map((account) => ({
+    id: account.id,
+    name: account.nome,
+    bankName: account.conta_padrao ? "Conta padrão" : "Conta financeira",
+    balance: account.saldo_atual,
+    color: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  }));
 
   // Auto-set the opening account ID once default becomes available
 
@@ -143,11 +189,11 @@ export function Financeiro() {
 
   // Real-time tracking of transactions in Cash for the active session
 
-  const totalCashIn = 0;
-  const totalCashOut = 0;
+  const totalCashIn = cashReconciliationQuery.data?.total_creditos ?? 0;
+  const totalCashOut = cashReconciliationQuery.data?.total_debitos ?? 0;
 
   const currentExpectedBalance = activeSession
-    ? activeSession.initialBalance + totalCashIn - totalCashOut
+    ? activeSession.expectedBalance
     : 0;
 
   // Handler to Open Cash Register
@@ -297,9 +343,6 @@ export function Financeiro() {
               {activeSession ? (
                 <button
                   onClick={() => {
-                    setCashCloseActualBalance("");
-                    setCashCloseNotes("");
-                    setCashCloseError("");
                     setIsCashCloseModalOpen(true);
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500 hover:text-slate-950 text-rose-400 border border-rose-500/20 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center gap-2 transition-all select-none"
@@ -310,13 +353,6 @@ export function Financeiro() {
               ) : (
                 <button
                   onClick={() => {
-                    if (defaultCashAccount) {
-                      setCashOpenBankAccountId(defaultCashAccount.id);
-                      setCashOpenInitialBalance(
-                        defaultCashAccount.balance.toString(),
-                      );
-                    }
-                    setCashOpenOperator("Operador de Caixa");
                     setIsCashOpenModalOpen(true);
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center gap-2 transition-all shadow-md select-none"
@@ -432,7 +468,7 @@ export function Financeiro() {
                       <thead>
                         <tr className="border-b border-slate-800 bg-slate-950/25 text-slate-500 font-mono text-[10px] uppercase">
                           <th className="py-2.5 px-3">Código</th>
-                          <th className="py-2.5 px-3">Data</th>
+                          <th className="py-2.5 px-3">Caixa</th>
                           <th className="py-2.5 px-3">Fluxo</th>
                           <th className="py-2.5 px-3">
                             Descrição do Lançamento
@@ -506,13 +542,6 @@ export function Financeiro() {
               <div className="flex flex-col gap-2 shrink-0 w-full md:w-auto">
                 <button
                   onClick={() => {
-                    if (defaultCashAccount) {
-                      setCashOpenBankAccountId(defaultCashAccount.id);
-                      setCashOpenInitialBalance(
-                        defaultCashAccount.balance.toString(),
-                      );
-                    }
-                    setCashOpenOperator("Operador de Caixa");
                     setIsCashOpenModalOpen(true);
                   }}
                   className="px-5 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 hover:border-emerald-500/30 rounded-xl text-xs uppercase font-bold cursor-pointer flex items-center justify-center gap-2 select-none transition-all"

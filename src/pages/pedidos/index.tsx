@@ -1,28 +1,159 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
 import {
-  AlertCircle,
   ArrowDownRight,
   ArrowUpRight,
-  Check,
+  Ban,
   ClipboardList,
-  DollarSign,
+  Edit,
   Plus,
+  Printer,
+  RefreshCw,
   Search,
-  ShoppingBag,
-  Trash2,
-  User,
+  X,
 } from "lucide-react";
 import NewOrder from "../../components/NewOrder";
+import { useLoggedUser } from "../../context/useLoggedUser";
+import {
+  useCancelOrder,
+  useCreateOrder,
+  useOrders,
+  useReopenOrder,
+} from "../../utils/queries";
+import type { ApiError, OrdersResponse } from "../../utils/types";
+
+function formatarData(data: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(data));
+}
 
 export function Pedidos() {
   const [activeSubTab, setActiveSubTab] = useState<
     "list" | "new_purchase_order" | "new_sale_order"
   >("list");
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [typeFilter, setTypeFilter] = useState<"all" | "COMPRA" | "VENDA">(
+    "all",
+  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "ABERTO" | "FECHADO" | "CANCELADO"
+  >("all");
+  const [currentOrder, setCurrentOrder] = useState<{
+    id: number;
+    tipo: "COMPRA" | "VENDA";
+  } | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    action: "reopen" | "cancel";
+    order: OrdersResponse;
+  } | null>(null);
+  const [createOrderError, setCreateOrderError] = useState("");
+  const { user } = useLoggedUser();
+  const createOrder = useCreateOrder();
+  const reopenOrder = useReopenOrder();
+  const cancelOrder = useCancelOrder();
+  const ordersQuery = useOrders({
+    tipo: typeFilter === "all" ? undefined : typeFilter,
+    status: statusFilter === "all" ? undefined : statusFilter,
+  });
+  const filteredOrders = useMemo(() => {
+    const term = searchTerm.trim().toLocaleLowerCase("pt-BR");
+
+    if (!term) {
+      return ordersQuery.data ?? [];
+    }
+
+    return (ordersQuery.data ?? []).filter((order) => {
+      const registro = [order.registro?.nome_razao, order.registro?.apelido]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("pt-BR");
+
+      return String(order.id).includes(term) || registro.includes(term);
+    });
+  }, [ordersQuery.data, searchTerm]);
+
+  async function handleCreateOrder(tipo: "COMPRA" | "VENDA") {
+    setCreateOrderError("");
+
+    if (!user) {
+      setCreateOrderError(
+        "Não foi possível identificar o usuário autenticado. Entre novamente.",
+      );
+      return;
+    }
+
+    try {
+      const order = await createOrder.mutateAsync(tipo);
+
+      if (order.userID !== user.id) {
+        setCreateOrderError(
+          "O pedido foi associado a um usuário diferente da sessão atual.",
+        );
+        return;
+      }
+
+      setCurrentOrder(order);
+      setActiveSubTab(
+        tipo === "COMPRA" ? "new_purchase_order" : "new_sale_order",
+      );
+    } catch (error) {
+      const apiError = error as ApiError;
+      setCreateOrderError(
+        apiError.mensagem ?? "Não foi possível abrir o pedido.",
+      );
+    }
+  }
+
+  function openOrder(order: Pick<OrdersResponse, "id" | "tipo">) {
+    setCurrentOrder({ id: order.id, tipo: order.tipo });
+    setActiveSubTab(
+      order.tipo === "COMPRA" ? "new_purchase_order" : "new_sale_order",
+    );
+  }
+
+  function handleEditOrder(order: OrdersResponse) {
+    setCreateOrderError("");
+
+    if (order.status === "FECHADO") {
+      setConfirmation({ action: "reopen", order });
+      return;
+    }
+
+    if (order.status === "ABERTO") {
+      openOrder(order);
+    }
+  }
+
+  async function confirmOrderAction() {
+    if (!confirmation) return;
+
+    setCreateOrderError("");
+    const { action, order } = confirmation;
+
+    try {
+      if (action === "reopen") {
+        await reopenOrder.mutateAsync(order.id);
+        setConfirmation(null);
+        openOrder(order);
+      } else {
+        await cancelOrder.mutateAsync(order.id);
+        setConfirmation(null);
+      }
+    } catch (error) {
+      const apiError = error as ApiError;
+      setCreateOrderError(
+        apiError.mensagem ??
+          (action === "reopen"
+            ? "Não foi possível reabrir o pedido."
+            : "Não foi possível cancelar o pedido."),
+      );
+      setConfirmation(null);
+    }
+  }
+
+  const orderActionPending = reopenOrder.isPending || cancelOrder.isPending;
 
   return (
     <LayoutBase activeTab="pedidos" pageTitle="Gerenciar Pedidos">
@@ -52,7 +183,9 @@ export function Pedidos() {
               Listagem de Pedidos
             </button>
             <button
-              onClick={() => setActiveSubTab("new_sale_order")}
+              type="button"
+              onClick={() => void handleCreateOrder("VENDA")}
+              disabled={createOrder.isPending}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "new_sale_order"
                   ? "bg-emerald-400 text-slate-950 shadow-md"
@@ -60,10 +193,12 @@ export function Pedidos() {
               }`}
             >
               <Plus className="h-4 w-4" />
-              Pedido Venda
+              {createOrder.isPending ? "Abrindo..." : "Pedido Venda"}
             </button>
             <button
-              onClick={() => setActiveSubTab("new_purchase_order")}
+              type="button"
+              onClick={() => void handleCreateOrder("COMPRA")}
+              disabled={createOrder.isPending}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "new_purchase_order"
                   ? "bg-emerald-400 text-slate-950 shadow-md"
@@ -71,10 +206,19 @@ export function Pedidos() {
               }`}
             >
               <Plus className="h-4 w-4" />
-              Pedido Compra
+              {createOrder.isPending ? "Abrindo..." : "Pedido Compra"}
             </button>
           </div>
         </div>
+
+        {createOrderError && (
+          <div
+            className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-300"
+            role="alert"
+          >
+            {createOrderError}
+          </div>
+        )}
 
         {/* SUBTAB 1: ORDERS LIST WORKSPACE */}
         {activeSubTab === "list" && (
@@ -88,7 +232,7 @@ export function Pedidos() {
                 </span>
                 <input
                   type="text"
-                  placeholder="Filtrar pedidos por código, cliente, fornecedor ou observações..."
+                  placeholder="Filtrar por ID, cliente ou fornecedor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-slate-950/40 text-slate-100 placeholder-slate-500 text-xs border border-slate-800 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
@@ -102,12 +246,16 @@ export function Pedidos() {
                 </span>
                 <select
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                  onChange={(e) =>
+                    setTypeFilter(
+                      e.target.value as "all" | "COMPRA" | "VENDA",
+                    )
+                  }
                   className="w-full lg:w-40 bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 >
                   <option value="all">Ver Todos</option>
-                  <option value="compra">Compras (Entradas)</option>
-                  <option value="venda">Vendas (Saídas)</option>
+                  <option value="COMPRA">Compras (Entradas)</option>
+                  <option value="VENDA">Vendas (Saídas)</option>
                 </select>
               </div>
 
@@ -118,40 +266,79 @@ export function Pedidos() {
                 </span>
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) =>
+                    setStatusFilter(
+                      e.target.value as
+                        | "all"
+                        | "ABERTO"
+                        | "FECHADO"
+                        | "CANCELADO",
+                    )
+                  }
                   className="w-full lg:w-40 bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 >
                   <option value="all">Todos Status</option>
-                  <option value="pago">Líquido (Pago)</option>
-                  <option value="pendente">Pendente / Faturado</option>
-                  <option value="cancelado">Estornado (Cancelado)</option>
+                  <option value="ABERTO">Aberto</option>
+                  <option value="FECHADO">Fechado</option>
+                  <option value="CANCELADO">Cancelado</option>
                 </select>
               </div>
             </div>
 
+            {ordersQuery.isPending && (
+              <div
+                className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400"
+                role="status"
+              >
+                Carregando pedidos...
+              </div>
+            )}
+
+            {ordersQuery.isError && (
+              <div
+                className="flex items-center justify-between gap-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5"
+                role="alert"
+              >
+                <div>
+                  <p className="text-sm font-bold text-rose-300">
+                    Não foi possível carregar os pedidos
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Verifique a conexão com a API e tente novamente.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => ordersQuery.refetch()}
+                  className="shrink-0 rounded-xl bg-rose-400 px-4 py-2 text-xs font-bold uppercase text-slate-950 transition-colors hover:bg-rose-300"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+
             {/* Orders Table Container */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-400">
+            {ordersQuery.isSuccess && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-400">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/15 text-slate-500 font-mono uppercase tracking-wider">
                       <th className="py-3 px-4">Pedido ID</th>
                       <th className="py-3 px-4">Fluxo</th>
                       <th className="py-3 px-4">Data Emissão</th>
-                      <th className="py-3 px-4">Parceiro Comercial</th>
-                      <th className="py-3 px-4">Material de Pesagem</th>
+                      <th className="py-3 px-4">Cliente/Fornecedor</th>
                       <th className="py-3 px-4 text-right">Valor Líquido</th>
-                      <th className="py-3 px-4 text-center">Faturamento</th>
+                      <th className="py-3 px-4 text-center">
+                        Itens / Lançamentos
+                      </th>
                       <th className="py-3 px-4 text-center">Situação</th>
                       <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
                     {filteredOrders.map((order) => {
-                      const isSale = order.type === "venda";
-                      const itemsSummary = order.items
-                        .map((i: any) => `${i.name} (${i.quantity}kg)`)
-                        .join(", ");
+                      const isSale = order.tipo === "VENDA";
 
                       return (
                         <tr
@@ -188,67 +375,56 @@ export function Pedidos() {
 
                           {/* Date */}
                           <td className="py-3.5 px-4 text-slate-400 font-mono">
-                            {order.date}
+                            {formatarData(order.criado_em)}
                           </td>
 
                           {/* Customer/Supplier */}
                           <td className="py-3.5 px-4 text-slate-200 font-semibold truncate max-w-[160px]">
-                            {order.partnerName}
-                          </td>
-
-                          {/* Material Summary */}
-                          <td
-                            className="py-3.5 px-4 text-slate-400 truncate max-w-[180px]"
-                            title={itemsSummary}
-                          >
-                            {itemsSummary}
+                            {order.registro?.apelido ||
+                              order.registro?.nome_razao ||
+                              "Não informado"}
                           </td>
 
                           {/* Value */}
                           <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-100">
                             R${" "}
-                            {order.total.toLocaleString("pt-BR", {
+                            {order.valor_total.toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
 
-                          {/* Payment Method / Terms */}
+                          {/* Counts returned by the API */}
                           <td className="py-3.5 px-4 text-center text-slate-400 font-medium text-[11px]">
-                            {order.paymentMethod} (
-                            {order.paymentTerms === "vista"
-                              ? "À Vista"
-                              : order.paymentTerms}
-                            )
+                            {order._count.items} itens /{" "}
+                            {order._count.lancamentos} lançamentos
                           </td>
 
                           {/* Status Badge */}
                           <td className="py-3.5 px-4 text-center">
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-                                order.status === "pago"
+                                order.status === "FECHADO"
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : order.status === "pendente"
+                                  : order.status === "ABERTO"
                                     ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                     : "bg-rose-500/10 text-rose-400 border-rose-500/20"
                               }`}
                             >
                               <span
                                 className={`h-1.5 w-1.5 rounded-full ${
-                                  order.status === "pago"
+                                  order.status === "FECHADO"
                                     ? "bg-emerald-400"
-                                    : order.status === "pendente"
+                                    : order.status === "ABERTO"
                                       ? "bg-amber-400"
                                       : "bg-rose-400"
                                 }`}
                               ></span>
-                              {order.status === "pago"
-                                ? isSale
-                                  ? "Recebido"
-                                  : "Liquidado"
-                                : order.status === "pendente"
-                                  ? "Faturado"
-                                  : "Estornado"}
+                              {order.status === "FECHADO"
+                                ? "Fechado"
+                                : order.status === "ABERTO"
+                                  ? "Aberto"
+                                  : "Cancelado"}
                             </span>
                           </td>
 
@@ -257,51 +433,44 @@ export function Pedidos() {
                             <div className="flex items-center justify-end gap-1.5">
                               {/* View & print 80x40 receipt button */}
                               <button
-                                onClick={() => {
-                                  setSelectedReceiptOrder(order);
-                                  setSelectedReceiptType(order.type);
-                                }}
+                                onClick={() => {}}
                                 className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded-lg cursor-pointer transition-colors"
                                 title="Visualizar e Emitir Cupom Térmico 80x40"
                               >
                                 <Printer className="h-4 w-4" />
                               </button>
 
-                              {/* Only edit if NOT cancelled */}
-                              {order.status !== "cancelado" && (
+                              {/* Open drafts directly; closed orders require reopening. */}
+                              {order.status !== "CANCELADO" && (
                                 <button
-                                  onClick={() =>
-                                    startEditOrder(order, order.type)
-                                  }
+                                  type="button"
+                                  onClick={() => handleEditOrder(order)}
                                   className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 rounded-lg cursor-pointer transition-colors"
-                                  title="Editar quantias ou preços do pedido"
+                                  title={
+                                    order.status === "FECHADO"
+                                      ? "Reabrir pedido para editar"
+                                      : "Editar pedido"
+                                  }
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>
                               )}
 
-                              {/* Cancel / Reopen Toggles */}
-                              {order.status === "cancelado" ? (
+                              {order.status === "ABERTO" ? (
                                 <button
+                                  type="button"
                                   onClick={() =>
-                                    handleReopenOrder(order.id, order.type)
-                                  }
-                                  className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 rounded-lg cursor-pointer transition-all"
-                                  title="Reabrir / Restaurar Pedido"
-                                >
-                                  <RefreshCw className="h-4 w-4" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    handleCancelOrder(order.id, order.type)
+                                    setConfirmation({
+                                      action: "cancel",
+                                      order,
+                                    })
                                   }
                                   className="p-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 rounded-lg cursor-pointer transition-all"
-                                  title="Cancelar / Estornar Lançamento"
+                                  title="Cancelar pedido"
                                 >
                                   <Ban className="h-4 w-4" />
                                 </button>
-                              )}
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -311,7 +480,7 @@ export function Pedidos() {
                     {filteredOrders.length === 0 && (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={8}
                           className="p-12 text-center text-slate-500"
                         >
                           Nenhum pedido de compra ou venda corresponde aos
@@ -320,15 +489,93 @@ export function Pedidos() {
                       </tr>
                     )}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {/* SUBTAB 2: LAUNCH NEW SALE ORDER WORKSPACE */}
-        {activeSubTab === "new_purchase_order" && <NewOrder type="purchase" />}
-        {activeSubTab === "new_sale_order" && <NewOrder type="sale" />}
+        {currentOrder && activeSubTab !== "list" && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+              Pedido de {currentOrder.tipo === "COMPRA" ? "compra" : "venda"} #
+              {currentOrder.id} aberto por {user?.nome}.
+            </div>
+            <NewOrder pedidoID={currentOrder.id} tipo={currentOrder.tipo} />
+          </div>
+        )}
+
+        {confirmation && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-confirmation-title"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3
+                    id="order-confirmation-title"
+                    className="text-base font-bold text-slate-100"
+                  >
+                    {confirmation.action === "reopen"
+                      ? "Reabrir pedido?"
+                      : "Cancelar pedido?"}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    {confirmation.action === "reopen"
+                      ? `O pedido #${confirmation.order.id} será reaberto e os movimentos financeiros e de estoque serão estornados pela API. Depois disso, ele será aberto para edição.`
+                      : `O pedido aberto #${confirmation.order.id} será cancelado. Essa ação não movimenta estoque ou financeiro.`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmation(null)}
+                  disabled={orderActionPending}
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
+                  aria-label="Fechar confirmação"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmation(null)}
+                  disabled={orderActionPending}
+                  className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold uppercase text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmOrderAction()}
+                  disabled={orderActionPending}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold uppercase text-slate-950 disabled:opacity-50 ${
+                    confirmation.action === "reopen"
+                      ? "bg-emerald-400 hover:bg-emerald-300"
+                      : "bg-rose-400 hover:bg-rose-300"
+                  }`}
+                >
+                  {confirmation.action === "reopen" ? (
+                    <RefreshCw className="h-4 w-4" />
+                  ) : (
+                    <Ban className="h-4 w-4" />
+                  )}
+                  {orderActionPending
+                    ? "Processando..."
+                    : confirmation.action === "reopen"
+                      ? "Reabrir e editar"
+                      : "Cancelar pedido"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </LayoutBase>
   );

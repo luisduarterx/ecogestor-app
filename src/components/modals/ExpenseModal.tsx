@@ -1,15 +1,14 @@
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { ArrowDownRight, X } from "lucide-react";
 import { motion } from "motion/react";
 
-type ExpenseCategory =
-  | "Operacional"
-  | "Logística"
-  | "Pessoal"
-  | "Tributos"
-  | "Utilidades"
-  | "Outros";
+import {
+  useCreateFinancialEntry,
+  useFinancialAccounts,
+  useFinancialCategories,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 
 interface ExpenseModalProps {
   setIsOpen: (value: boolean) => void;
@@ -21,10 +20,45 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
   const [category, setCategory] = useState("");
   const [value, setValue] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
-  const [date, setDate] = useState("");
-  const [method, setMethod] = useState("");
-  const [status, setStatus] = useState("");
-  const bankAccounts = [];
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState("Pix");
+  const [status, setStatus] = useState<"pago" | "pendente">("pago");
+  const accountsQuery = useFinancialAccounts();
+  const categoriesQuery = useFinancialCategories("DESPESA");
+  const createEntry = useCreateFinancialEntry();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (
+      description.trim().length < 3 ||
+      Number(value) <= 0 ||
+      !category ||
+      !date ||
+      (status === "pago" && !bankAccountId)
+    ) {
+      setError("Preencha descrição, valor, categoria, data e conta quando pago.");
+      return;
+    }
+    try {
+      await createEntry.mutateAsync({
+        valor: Number(value),
+        descricao: `${description.trim()} — ${method}`.slice(0, 250),
+        titulo: description.trim().slice(0, 100),
+        tipo: "PAGAR",
+        categoria_id: Number(category),
+        vencimento: date,
+        baixar_agora: status === "pago",
+        ...(status === "pago" ? { conta_id: Number(bankAccountId) } : {}),
+      });
+      setIsOpen(false);
+    } catch (requestError) {
+      setError(
+        (requestError as ApiError).mensagem ??
+          "Não foi possível lançar a despesa.",
+      );
+    }
+  }
 
   return (
     <div
@@ -49,7 +83,7 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
           </button>
         </div>
 
-        <form onSubmit={() => {}} className="p-6 space-y-4">
+        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}
@@ -93,15 +127,13 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-rose-400"
               >
-                <option value="Operacional">Operacional</option>
-                <option value="Logística">Logística / Fretes</option>
-                <option value="Pessoal">Pessoal / Salários</option>
-                <option value="Tributos">Tributos / Impostos</option>
-                <option value="Utilidades">Utilidades (Luz/Água)</option>
-                <option value="Outros">Outros Lançamentos</option>
+                <option value="">Selecione...</option>
+                {(categoriesQuery.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>{item.nome}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -118,9 +150,9 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-rose-400"
               >
                 <option value="">Selecione a conta...</option>
-                {bankAccounts.map((b) => (
+                {(accountsQuery.data ?? []).map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} (R$ {b.balance.toFixed(0)})
+                    {b.nome} (R$ {b.saldo_atual.toFixed(2)})
                   </option>
                 ))}
               </select>
@@ -183,9 +215,10 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
             </button>
             <button
               type="submit"
+              disabled={createEntry.isPending}
               className="px-5 py-2 bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Lançar Despesa
+              {createEntry.isPending ? "Lançando..." : "Lançar Despesa"}
             </button>
           </div>
         </form>

@@ -1,32 +1,30 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
 import { useSession } from "../utils/queries";
+import { useEffect } from "react";
 
 export function ProtectedRoute() {
-  const { user, setUser, logout, isAuthenticated } = useLoggedUser();
+  const { setUser, logout } = useLoggedUser();
   const location = useLocation();
   const token = localStorage.getItem("sid");
-  const session = useSession(Boolean(user && token));
-  if (session.isSuccess) {
-    setUser(session.data);
-  } else logout();
-  // useEffect(() => {
-  //   if (session.isSuccess) {
+  const session = useSession(Boolean(token));
+  useEffect(() => {
+    if (session.isSuccess) {
+      setUser(session.data);
+    }
 
-  //     setUser(session.data);
-  //   }
-  //   if (session.isError) {
-  //     logout();
+    if (session.isError) {
+      logout();
+    }
+  }, [session.isSuccess, session.isError, session.data, setUser, logout]);
+  if (session.isPending) {
+    return <div>Carregando...</div>;
+  }
 
-  //     localStorage.removeItem("sid");
-  //   }
-  // }, [session.isSuccess, session.isError, session.data, setUser, logout]);
-
-  if (!user || !token || !isAuthenticated) {
+  if (!token) {
     return <Navigate to={"/"} replace state={{ from: location.pathname }} />;
   }
   if (session.isError) {
-    console.log("session error");
     <Navigate to={"/"} replace state={{ from: location.pathname }} />;
   }
 

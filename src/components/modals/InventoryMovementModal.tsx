@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { ArrowDownRight, ArrowUpRight, Scale, X } from "lucide-react";
+import {
+  useCreateInventoryAdjustment,
+  useInventoryBalances,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 
 interface InventoryMovementModalProps {
   setIsMovementModalOpen: (value: boolean) => void;
@@ -10,17 +15,46 @@ export default function InventoryMovementModal({
   setIsMovementModalOpen,
   onClose,
 }: InventoryMovementModalProps) {
-  async function handleProcessMovement() {
-    alert("processado");
-    onClose();
-  }
   const [moveNotes, setMoveNotes] = useState("");
   const [moveError, setMoveError] = useState("");
   const [moveType, setMoveType] = useState("");
   const [moveMatId, setMoveMatId] = useState("");
   const [moveQty, setMoveQty] = useState("");
   const [moveEntity, setMoveEntity] = useState("");
-  const [materials, setMaterials] = useState([]);
+  const balancesQuery = useInventoryBalances();
+  const createAdjustment = useCreateInventoryAdjustment();
+
+  function closeModal() {
+    setIsMovementModalOpen(false);
+    onClose();
+  }
+
+  async function handleProcessMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMoveError("");
+
+    const motivo = [moveEntity.trim(), moveNotes.trim()]
+      .filter(Boolean)
+      .join(" — ");
+    if (!moveType || !moveMatId || Number(moveQty) <= 0 || motivo.length < 3) {
+      setMoveError("Preencha o sentido, material, peso e justificativa.");
+      return;
+    }
+
+    try {
+      await createAdjustment.mutateAsync({
+        materialID: Number(moveMatId),
+        direcao: moveType === "entrada" ? "ENTRADA" : "SAIDA",
+        quantidade: Number(moveQty),
+        motivo,
+      });
+      closeModal();
+    } catch (error) {
+      setMoveError(
+        (error as ApiError).mensagem ?? "Não foi possível salvar o ajuste.",
+      );
+    }
+  }
   return (
     <div
       id="modal-movimentacao"
@@ -39,7 +73,7 @@ export default function InventoryMovementModal({
             </h3>
           </div>
           <button
-            onClick={() => setIsMovementModalOpen(false)}
+            onClick={closeModal}
             className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer"
           >
             <X className="h-5 w-5" />
@@ -98,9 +132,9 @@ export default function InventoryMovementModal({
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="">Selecione...</option>
-                {materials.map((m) => (
+                {(balancesQuery.data?.dados ?? []).map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.stock} kg)
+                    {m.nome} ({m.saldo.toLocaleString("pt-BR")} kg)
                   </option>
                 ))}
               </select>
@@ -151,16 +185,17 @@ export default function InventoryMovementModal({
           <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsMovementModalOpen(false)}
+              onClick={closeModal}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
+              disabled={createAdjustment.isPending || balancesQuery.isPending}
               className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Salvar Ajuste
+              {createAdjustment.isPending ? "Salvando..." : "Salvar Ajuste"}
             </button>
           </div>
         </form>

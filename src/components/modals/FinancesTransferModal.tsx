@@ -1,19 +1,54 @@
 import { motion } from "motion/react";
 import { ArrowRightLeft, X } from "lucide-react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import {
+  useCreateFinancialTransfer,
+  useFinancialAccounts,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 interface FinancesTransferModalProps {
   setIsOpen: (value: boolean) => void;
 }
 export default function FinancesTransferModal({
   setIsOpen,
 }: FinancesTransferModalProps) {
-  function handleExecuteTransfer() {}
   const [transferError, setTransferError] = useState("");
   const [sourceBankId, setSourceBankId] = useState("");
   const [targetBankId, setTargetBankId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
-  const bankAccounts = [];
+  const accountsQuery = useFinancialAccounts();
+  const createTransfer = useCreateFinancialTransfer();
+
+  async function handleExecuteTransfer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTransferError("");
+    if (
+      !sourceBankId ||
+      !targetBankId ||
+      sourceBankId === targetBankId ||
+      Number(transferAmount) <= 0
+    ) {
+      setTransferError("Selecione contas diferentes e informe um valor válido.");
+      return;
+    }
+    try {
+      await createTransfer.mutateAsync({
+        conta_origem_id: Number(sourceBankId),
+        conta_destino_id: Number(targetBankId),
+        valor: Number(transferAmount),
+        ...(transferDesc.trim()
+          ? { descricao: transferDesc.trim().slice(0, 30) }
+          : {}),
+      });
+      setIsOpen(false);
+    } catch (error) {
+      setTransferError(
+        (error as ApiError).mensagem ??
+          "Não foi possível realizar a transferência.",
+      );
+    }
+  }
   return (
     <div
       id="modal-transferencia"
@@ -58,10 +93,10 @@ export default function FinancesTransferModal({
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="">Selecione...</option>
-                {bankAccounts.map((b) => (
+                {(accountsQuery.data ?? []).map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} (R${" "}
-                    {b.balance.toLocaleString("pt-BR", {
+                    {b.nome} (R${" "}
+                    {b.saldo_atual.toLocaleString("pt-BR", {
                       maximumFractionDigits: 0,
                     })}
                     )
@@ -79,10 +114,10 @@ export default function FinancesTransferModal({
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="">Selecione...</option>
-                {bankAccounts.map((b) => (
+                {(accountsQuery.data ?? []).map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} (R${" "}
-                    {b.balance.toLocaleString("pt-BR", {
+                    {b.nome} (R${" "}
+                    {b.saldo_atual.toLocaleString("pt-BR", {
                       maximumFractionDigits: 0,
                     })}
                     )
@@ -113,7 +148,8 @@ export default function FinancesTransferModal({
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Finalidade / Descrição da Operação
             </label>
-            <textarea
+              <textarea
+              maxLength={30}
               value={transferDesc}
               onChange={(e) => setTransferDesc(e.target.value)}
               placeholder="Ex: Reforço de saldo para liquidação de faturas de compras no balcão."
@@ -133,9 +169,10 @@ export default function FinancesTransferModal({
             </button>
             <button
               type="submit"
+              disabled={createTransfer.isPending || accountsQuery.isPending}
               className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Confirmar Envio
+              {createTransfer.isPending ? "Transferindo..." : "Confirmar Envio"}
             </button>
           </div>
         </form>

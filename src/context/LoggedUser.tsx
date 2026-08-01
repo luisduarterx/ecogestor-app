@@ -4,7 +4,7 @@ import { LoggedUserContext, type UserAuthenticated } from "./LoggedUserContext";
 const USER_STORAGE_KEY = "ecogestor_logged_user";
 
 function getStoredUser(): UserAuthenticated | null {
-  const storedUser = sessionStorage.getItem(USER_STORAGE_KEY);
+  const storedUser = localStorage.getItem("sid");
 
   if (!storedUser) {
     return null;

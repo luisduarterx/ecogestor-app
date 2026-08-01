@@ -1,312 +1,238 @@
-import React, { useState } from "react";
-
-import { Users, Star, X, Check, ShieldAlert, DollarSign } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Users, X, Check, ShieldAlert } from "lucide-react";
 import { motion } from "motion/react";
+import { useCreateRecord, useTables } from "../../utils/queries";
 
 interface RecordModalProps {
   setIsOpen: (value: boolean) => void;
 }
 
 export default function RecordModal({ setIsOpen }: RecordModalProps) {
-  const customPriceTables = [
-    {
-      id: 1,
-      name: "TaBela 1",
-      isDefault: true,
-      buyPrices: [],
-    },
-  ];
+  const createRecord = useCreateRecord();
+  const tablesQuery = useTables();
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [document, setDocument] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [stateRegistration, setStateRegistration] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("SP");
-  const [type, setType] = useState<"supplier" | "customer" | "both">(
-    "supplier",
+  const [district, setDistrict] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [addressComplement, setAddressComplement] = useState("");
+  const [bank, setBank] = useState("");
+  const [agency, setAgency] = useState("");
+  const [account, setAccount] = useState("");
+  const [paymentCpf, setPaymentCpf] = useState("");
+  const [pix, setPix] = useState("");
+  const [personType, setPersonType] = useState<"FISICA" | "JURIDICA">(
+    "JURIDICA",
   );
-  const [category, setCategory] = useState<
-    "cooperative" | "scrap_yard" | "industrial" | "individual" | "other"
-  >("individual");
-  const [rating, setRating] = useState<number>(5);
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState<"active" | "inactive">("active");
   const [priceTableId, setPriceTableId] = useState("");
   const [formError, setFormError] = useState("");
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError("");
+    const normalizedDocument = document.replace(/\D/g, "");
+    const normalizedPaymentCpf = paymentCpf.replace(/\D/g, "");
+    const normalizedZipCode = zipCode.replace(/\D/g, "");
+    const expectedLength = personType === "FISICA" ? 11 : 14;
+    if (name.trim().length < 6) {
+      setFormError("Informe um nome com pelo menos 6 caracteres.");
+      return;
+    }
+    if (normalizedDocument.length !== expectedLength) {
+      setFormError(
+        personType === "FISICA"
+          ? "O CPF deve conter 11 dígitos."
+          : "O CNPJ deve conter 14 dígitos.",
+      );
+      return;
+    }
+    if (normalizedPaymentCpf && normalizedPaymentCpf.length !== 11) {
+      setFormError("O CPF do titular do pagamento deve conter 11 dígitos.");
+      return;
+    }
+    if (normalizedZipCode.length > 8) {
+      setFormError("O CEP deve conter no máximo 8 dígitos.");
+      return;
+    }
+
+    try {
+      await createRecord.mutateAsync({
+        tipo: personType,
+        nome: name.trim(),
+        ...(personType === "FISICA"
+          ? {
+              cpf: normalizedDocument,
+              nascimento: birthDate || undefined,
+            }
+          : {
+              cnpj: normalizedDocument,
+              ie: stateRegistration.trim() || undefined,
+            }),
+        apelido: nickname.trim() || undefined,
+        email: email.trim() || undefined,
+        telefone: phone.trim() || undefined,
+        tabelaID: priceTableId ? Number(priceTableId) : undefined,
+        pagamento:
+          bank.trim() ||
+          agency.trim() ||
+          account.trim() ||
+          normalizedPaymentCpf ||
+          pix.trim()
+            ? {
+                banco: bank.trim() || undefined,
+                agencia: agency.trim() || undefined,
+                conta: account.trim() || undefined,
+                cpf: normalizedPaymentCpf || undefined,
+                pix: pix.trim() || undefined,
+              }
+            : undefined,
+        endereco:
+          normalizedZipCode ||
+          address.trim() ||
+          city.trim() ||
+          district.trim() ||
+          addressNumber.trim() ||
+          addressComplement.trim()
+            ? {
+                cep: normalizedZipCode || undefined,
+                logradouro: address.trim() || undefined,
+                cidade: city.trim() || undefined,
+                estado: state.trim().toUpperCase() || undefined,
+                bairro: district.trim() || undefined,
+                numero: addressNumber.trim() || undefined,
+                complemento: addressComplement.trim() || undefined,
+              }
+            : undefined,
+      });
+      setIsOpen(false);
+    } catch (error) {
+      const apiError = error as { response?: { data?: { mensagem?: string } } };
+      setFormError(
+        apiError.response?.data?.mensagem ?? "Não foi possível salvar o registro.",
+      );
+    }
+  };
+
+  const inputClass =
+    "w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400";
+
   return (
-    <div
-      id="modal-cadastro"
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
-    >
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-2xl overflow-hidden shadow-2xl"
+        className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-3xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col"
       >
-        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-emerald-400" />
-            <h3 className="font-bold text-slate-100">
-              Cadastro de Fornecedor / Cliente
-            </h3>
+            <h3 className="font-bold text-slate-100">Cadastro de cliente / fornecedor</h3>
           </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-          >
+          <button onClick={() => setIsOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Modal Form */}
-        <form onSubmit={() => {}} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
           {formError && (
             <div className="bg-rose-500/10 border border-rose-500/25 p-3.5 rounded-xl text-xs text-rose-300 flex items-start gap-2">
-              <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+              <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
               <span>{formError}</span>
             </div>
           )}
 
-          {/* Primary row: name & doc */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Razão Social / Nome Completo *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Cooperativa Recicla Oeste"
-                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                CNPJ / CPF *
-              </label>
-              <input
-                type="text"
-                required
-                value={document}
-                onChange={(e) => setDocument(e.target.value)}
-                placeholder="Ex: 12.345.678/0001-00"
-                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-          </div>
-
-          {/* Contact row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Telefone Comercial
-              </label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ex: (11) 98765-4321"
-                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                E-mail para Notas
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ex: faturas@parceiro.com"
-                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-          </div>
-
-          {/* Location row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Endereço Comercial (Rua, Nº, Bairro)
-              </label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Ex: Av. Reciclagem, 120 - Setor C"
-                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Cidade
-                </label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="São José"
-                  className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Estado
-                </label>
-                <input
-                  type="text"
-                  maxLength={2}
-                  value={state}
-                  onChange={(e) => setState(e.target.value.toUpperCase())}
-                  placeholder="SP"
-                  className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Classification Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Vínculo Comercial
-              </label>
-              <div className="flex gap-2">
-                {["supplier", "customer", "both"].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setType(t as any)}
-                    className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase transition-all duration-150 border ${
-                      type === t
-                        ? "bg-emerald-400 border-transparent text-slate-950"
-                        : "bg-slate-950/20 border-slate-800 text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    {t === "supplier"
-                      ? "Fornec"
-                      : t === "customer"
-                        ? "Cliente"
-                        : "Ambos"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Categoria do Parceiro
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              >
-                <option value="cooperative">Cooperativa de Catadores</option>
-                <option value="scrap_yard">Depósito / Sucateiro</option>
-                <option value="industrial">Indústria de Reciclagem</option>
-                <option value="individual">Catador Autônomo / CPF</option>
-                <option value="other">Outros Perfis</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Status & Reputação
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                >
-                  <option value="active">Ativo</option>
-                  <option value="inactive">Inativo</option>
-                </select>
-
-                <div className="flex items-center justify-center bg-slate-950/30 border border-slate-800 rounded-xl px-2 gap-1.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setRating(star)}
-                      className="p-0.5 hover:scale-115 transition-transform text-amber-400 cursor-pointer"
-                    >
-                      <Star
-                        className={`h-3.5 w-3.5 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-slate-600"}`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Price Table Association (Only for Suppliers or Both) */}
-          {type !== "customer" && (
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
-                Tabela de Preços de Compra Associada
-              </label>
-              <select
-                value={priceTableId}
-                onChange={(e) => setPriceTableId(e.target.value)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              >
-                <option value="">Tabela Padrão (Preços de Tabela Geral)</option>
-                {customPriceTables.map((tbl) => (
-                  <option key={tbl.id} value={tbl.id}>
-                    {tbl.name} (
-                    {tbl.isDefault
-                      ? "Tarifas Básicas"
-                      : `${Object.keys(tbl.buyPrices).length} itens especiais`}
-                    )
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-500 mt-1">
-                Selecione uma tabela diferenciada para preenchimento automático
-                das notas de entrada desse parceiro.
-              </p>
-            </div>
-          )}
-
-          {/* Notes */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Observações Internas (Restrições de Carga, Acordos)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Acordo especial de frete pago pela usina para cargas acima de 2 toneladas."
-              rows={2}
-              className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none"
-            />
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de pessoa</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["FISICA", "JURIDICA"] as const).map((type) => (
+                <button key={type} type="button" onClick={() => setPersonType(type)} className={`py-2 rounded-xl text-[10px] font-bold uppercase border ${personType === type ? "bg-emerald-400 border-transparent text-slate-950" : "bg-slate-950/20 border-slate-800 text-slate-400"}`}>
+                  {type === "FISICA" ? "Pessoa física" : "Pessoa jurídica"}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/20 px-6 py-4 -mx-6 -mb-6">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center gap-1.5"
-            >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Razão social / Nome completo *</label>
+              <input required value={name} onChange={(event) => setName(event.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">{personType === "FISICA" ? "CPF" : "CNPJ"} *</label>
+              <input required inputMode="numeric" value={document} onChange={(event) => setDocument(event.target.value)} className={inputClass} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Apelido / Nome fantasia</label>
+              <input value={nickname} onChange={(event) => setNickname(event.target.value)} className={inputClass} />
+            </div>
+            {personType === "FISICA" ? (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Data de nascimento</label>
+                <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className={inputClass} />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Inscrição estadual</label>
+                <input value={stateRegistration} onChange={(event) => setStateRegistration(event.target.value)} className={inputClass} />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Telefone" className={inputClass} />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" className={inputClass} />
+          </div>
+
+          <div className="space-y-3 border-t border-slate-800 pt-4">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Endereço</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <input inputMode="numeric" value={zipCode} onChange={(event) => setZipCode(event.target.value)} placeholder="CEP" className={inputClass} />
+              <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Logradouro" className={`${inputClass} md:col-span-2`} />
+              <input value={addressNumber} onChange={(event) => setAddressNumber(event.target.value)} placeholder="Número" className={inputClass} />
+              <input value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Bairro" className={inputClass} />
+              <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Cidade" className={inputClass} />
+              <input maxLength={2} value={state} onChange={(event) => setState(event.target.value.toUpperCase())} placeholder="UF" className={inputClass} />
+              <input value={addressComplement} onChange={(event) => setAddressComplement(event.target.value)} placeholder="Complemento" className={inputClass} />
+            </div>
+          </div>
+
+          <div className="space-y-3 border-t border-slate-800 pt-4">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Dados de pagamento</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input value={bank} onChange={(event) => setBank(event.target.value)} placeholder="Banco" className={inputClass} />
+              <input value={agency} onChange={(event) => setAgency(event.target.value)} placeholder="Agência" className={inputClass} />
+              <input value={account} onChange={(event) => setAccount(event.target.value)} placeholder="Conta" className={inputClass} />
+              <input inputMode="numeric" value={paymentCpf} onChange={(event) => setPaymentCpf(event.target.value)} placeholder="CPF do titular" className={inputClass} />
+              <input value={pix} onChange={(event) => setPix(event.target.value)} placeholder="Chave PIX" className={`${inputClass} md:col-span-2`} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1.5">Tabela de preços</label>
+            <select value={priceTableId} onChange={(event) => setPriceTableId(event.target.value)} className={inputClass}>
+              <option value="">Tabela padrão</option>
+              {(tablesQuery.data ?? []).map((table) => (
+                <option key={table.id} value={table.id}>{table.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+            <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs uppercase cursor-pointer">Cancelar</button>
+            <button type="submit" disabled={createRecord.isPending} className="px-5 py-2 bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center gap-1.5">
               <Check className="h-4 w-4" />
-              Salvar Cadastro
+              {createRecord.isPending ? "Salvando..." : "Salvar cadastro"}
             </button>
           </div>
         </form>

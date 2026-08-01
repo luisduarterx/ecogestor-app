@@ -1,6 +1,11 @@
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Wallet, X } from "lucide-react";
 import { motion } from "motion/react";
+import {
+  useCreateFinancialAccount,
+  useFinancialAccounts,
+} from "../../utils/queries";
+import type { ApiError } from "../../utils/types";
 
 interface BankModalProps {
   setIsOpen: (value: boolean) => void;
@@ -11,7 +16,38 @@ export default function BankModal({ setIsOpen }: BankModalProps) {
   const [accountName, setAccountName] = useState("");
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("");
-  const [error, setError] = useState("s");
+  const [isDefault, setIsDefault] = useState(false);
+  const [error, setError] = useState("");
+  const accountsQuery = useFinancialAccounts();
+  const createAccount = useCreateFinancialAccount();
+  const defaultAccountExists = accountsQuery.data?.some(
+    (account) => account.conta_padrao,
+  );
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const nome = [bankName.trim(), accountName.trim()]
+      .filter(Boolean)
+      .join(" - ");
+    if (nome.length < 3 || Number(initialBalance || 0) < 0) {
+      setError("Informe o nome da conta e um saldo inicial válido.");
+      return;
+    }
+    try {
+      await createAccount.mutateAsync({
+        nome,
+        saldo_inicial: Number(initialBalance || 0),
+        conta_padrao: !defaultAccountExists || isDefault,
+      });
+      setIsOpen(false);
+    } catch (requestError) {
+      setError(
+        (requestError as ApiError).mensagem ??
+          "Não foi possível criar a conta financeira.",
+      );
+    }
+  }
 
   return (
     <div
@@ -38,7 +74,7 @@ export default function BankModal({ setIsOpen }: BankModalProps) {
           </button>
         </div>
 
-        <form onSubmit={() => {}} className="p-6 space-y-4">
+        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}
@@ -58,6 +94,18 @@ export default function BankModal({ setIsOpen }: BankModalProps) {
               className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
             />
           </div>
+
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={!defaultAccountExists || isDefault}
+              disabled={Boolean(defaultAccountExists)}
+              onChange={(event) => setIsDefault(event.target.checked)}
+            />
+            {!defaultAccountExists
+              ? "Definir como conta padrão"
+              : "Já existe uma conta padrão cadastrada"}
+          </label>
 
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -139,9 +187,10 @@ export default function BankModal({ setIsOpen }: BankModalProps) {
             </button>
             <button
               type="submit"
+              disabled={createAccount.isPending}
               className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              Criar Conta
+              {createAccount.isPending ? "Criando..." : "Criar Conta"}
             </button>
           </div>
         </form>
