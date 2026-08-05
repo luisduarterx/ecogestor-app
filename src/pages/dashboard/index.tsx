@@ -13,8 +13,10 @@ import { LayoutBase } from "../../components/LayoutBase";
 import { useState } from "react";
 import ButtonDashboard from "../../components/ButtonDashboard";
 import { useDashboard } from "../../utils/queries";
+import { useNavigate } from "react-router";
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [dashboardMode, setDashboardMode] = useState<"purchases" | "overview">(
     "overview",
   );
@@ -230,7 +232,7 @@ export function Dashboard() {
               Icon={ShoppingBag}
               description="Registrar entrada física e financeira"
               label="Nova Compra"
-              onClick={() => {}}
+              onClick={() => navigate("/pedidos")}
             />
 
             <ButtonDashboard
@@ -239,7 +241,7 @@ export function Dashboard() {
               Icon={Package}
               description="Fazer balanço ou conversão física"
               label="Ajustar Estoque"
-              onClick={() => {}}
+              onClick={() => navigate("/estoque")}
             />
             <ButtonDashboard
               color_icon="text-sky-400"
@@ -247,7 +249,7 @@ export function Dashboard() {
               Icon={Users}
               description="Cadastrar Fornecedor ou Cliente"
               label="Cadastrar Parceiro"
-              onClick={() => {}}
+              onClick={() => navigate("/registros")}
             />
             <ButtonDashboard
               color_icon="text-amber-400"
@@ -255,7 +257,7 @@ export function Dashboard() {
               Icon={DollarSign}
               description="Ver extratos bancários e faturas"
               label="Caixa Geral"
-              onClick={() => {}}
+              onClick={() => navigate("/financeiro")}
             />
           </div>
         )}

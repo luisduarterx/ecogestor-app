@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Ban,
+  CheckCircle2,
   ClipboardList,
   Edit,
   Plus,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import NewOrder from "../../components/NewOrder";
+import PrintModalOrder from "../../components/modals/PrintModalOrder";
 import { useLoggedUser } from "../../context/useLoggedUser";
 import {
   useCancelOrder,
@@ -49,6 +51,8 @@ export function Pedidos() {
     order: OrdersResponse;
   } | null>(null);
   const [createOrderError, setCreateOrderError] = useState("");
+  const [orderOpenNotice, setOrderOpenNotice] = useState("");
+  const [printOrderId, setPrintOrderId] = useState<number | null>(null);
   const { user } = useLoggedUser();
   const createOrder = useCreateOrder();
   const reopenOrder = useReopenOrder();
@@ -57,6 +61,7 @@ export function Pedidos() {
     tipo: typeFilter === "all" ? undefined : typeFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
+  const openOrdersQuery = useOrders({ status: "ABERTO" });
   const filteredOrders = useMemo(() => {
     const term = searchTerm.trim().toLocaleLowerCase("pt-BR");
 
@@ -74,8 +79,16 @@ export function Pedidos() {
     });
   }, [ordersQuery.data, searchTerm]);
 
+  useEffect(() => {
+    if (!orderOpenNotice) return;
+
+    const timeout = window.setTimeout(() => setOrderOpenNotice(""), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [orderOpenNotice]);
+
   async function handleCreateOrder(tipo: "COMPRA" | "VENDA") {
     setCreateOrderError("");
+    setOrderOpenNotice("");
 
     if (!user) {
       setCreateOrderError(
@@ -85,6 +98,34 @@ export function Pedidos() {
     }
 
     try {
+      const openOrdersResult = await openOrdersQuery.refetch();
+
+      if (openOrdersResult.isError) {
+        setCreateOrderError(
+          "Não foi possível verificar seus pedidos em andamento. Tente novamente para evitar a criação de pedidos duplicados.",
+        );
+        return;
+      }
+
+      const existingOrder = (openOrdersResult.data ?? [])
+        .filter(
+          (order) => order.userID === user.id && order.tipo === tipo,
+        )
+        .sort(
+          (first, second) =>
+            new Date(second.atualizado || second.criado_em).getTime() -
+            new Date(first.atualizado || first.criado_em).getTime(),
+        )[0];
+
+      if (existingOrder) {
+        setCreateOrderError("");
+        setOrderOpenNotice(
+          `Pedido de ${tipo === "COMPRA" ? "compra" : "venda"} #${existingOrder.id} retomado por ${user.nome}. Nenhum novo pedido foi criado.`,
+        );
+        openOrder(existingOrder);
+        return;
+      }
+
       const order = await createOrder.mutateAsync(tipo);
 
       if (order.userID !== user.id) {
@@ -95,6 +136,9 @@ export function Pedidos() {
       }
 
       setCurrentOrder(order);
+      setOrderOpenNotice(
+        `Pedido de ${tipo === "COMPRA" ? "compra" : "venda"} #${order.id} criado e aberto por ${user.nome}.`,
+      );
       setActiveSubTab(
         tipo === "COMPRA" ? "new_purchase_order" : "new_sale_order",
       );
@@ -154,6 +198,7 @@ export function Pedidos() {
   }
 
   const orderActionPending = reopenOrder.isPending || cancelOrder.isPending;
+  const openingOrder = createOrder.isPending || openOrdersQuery.isFetching;
 
   return (
     <LayoutBase activeTab="pedidos" pageTitle="Gerenciar Pedidos">
@@ -185,7 +230,7 @@ export function Pedidos() {
             <button
               type="button"
               onClick={() => void handleCreateOrder("VENDA")}
-              disabled={createOrder.isPending}
+              disabled={openingOrder}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "new_sale_order"
                   ? "bg-emerald-400 text-slate-950 shadow-md"
@@ -193,12 +238,12 @@ export function Pedidos() {
               }`}
             >
               <Plus className="h-4 w-4" />
-              {createOrder.isPending ? "Abrindo..." : "Pedido Venda"}
+              {openingOrder ? "Verificando..." : "Pedido Venda"}
             </button>
             <button
               type="button"
               onClick={() => void handleCreateOrder("COMPRA")}
-              disabled={createOrder.isPending}
+              disabled={openingOrder}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "new_purchase_order"
                   ? "bg-emerald-400 text-slate-950 shadow-md"
@@ -206,7 +251,7 @@ export function Pedidos() {
               }`}
             >
               <Plus className="h-4 w-4" />
-              {createOrder.isPending ? "Abrindo..." : "Pedido Compra"}
+              {openingOrder ? "Verificando..." : "Pedido Compra"}
             </button>
           </div>
         </div>
@@ -217,6 +262,25 @@ export function Pedidos() {
             role="alert"
           >
             {createOrderError}
+          </div>
+        )}
+
+        {orderOpenNotice && (
+          <div
+            className="fixed right-4 top-4 z-[120] flex w-[calc(100%-2rem)] max-w-md items-start gap-3 rounded-xl border border-emerald-500/30 bg-slate-900 p-4 text-sm text-slate-200 shadow-2xl shadow-slate-950/50"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+            <span className="flex-1 leading-5">{orderOpenNotice}</span>
+            <button
+              type="button"
+              onClick={() => setOrderOpenNotice("")}
+              className="rounded-md p-0.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+              aria-label="Fechar notificação"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
 
@@ -433,7 +497,8 @@ export function Pedidos() {
                             <div className="flex items-center justify-end gap-1.5">
                               {/* View & print 80x40 receipt button */}
                               <button
-                                onClick={() => {}}
+                                type="button"
+                                onClick={() => setPrintOrderId(order.id)}
                                 className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded-lg cursor-pointer transition-colors"
                                 title="Visualizar e Emitir Cupom Térmico 80x40"
                               >
@@ -498,11 +563,7 @@ export function Pedidos() {
 
         {/* SUBTAB 2: LAUNCH NEW SALE ORDER WORKSPACE */}
         {currentOrder && activeSubTab !== "list" && (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
-              Pedido de {currentOrder.tipo === "COMPRA" ? "compra" : "venda"} #
-              {currentOrder.id} aberto por {user?.nome}.
-            </div>
+          <div>
             <NewOrder pedidoID={currentOrder.id} tipo={currentOrder.tipo} />
           </div>
         )}
@@ -575,6 +636,13 @@ export function Pedidos() {
               </div>
             </div>
           </div>
+        )}
+
+        {printOrderId !== null && (
+          <PrintModalOrder
+            orderId={printOrderId}
+            onClose={() => setPrintOrderId(null)}
+          />
         )}
       </div>
     </LayoutBase>

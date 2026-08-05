@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   X,
   ClipboardList,
+  UserCog,
 } from "lucide-react";
 import { ItemMenu } from "./ItemMenu";
 import { useNavigate } from "react-router";
@@ -47,19 +48,19 @@ export default function Sidebar({
       link: "/pedidos",
     },
     {
-      id: "inventory",
+      id: "estoque",
       label: "Controle de Estoque",
       icon: Package,
       link: "/estoque",
     },
     {
-      id: "prices",
+      id: "precos",
       label: "Preços Praticados",
       icon: TrendingUp,
       link: "/precos",
     },
     {
-      id: "finances",
+      id: "financeiro",
       label: "Fluxo de Caixa",
       icon: DollarSign,
       link: "/financeiro",
@@ -69,6 +70,12 @@ export default function Sidebar({
       label: "Clientes e Fornecedores",
       icon: Users,
       link: "/registros",
+    },
+    {
+      id: "usuarios",
+      label: "Gestão de Usuários",
+      icon: UserCog,
+      link: "/usuarios",
     },
     {
       id: "records",

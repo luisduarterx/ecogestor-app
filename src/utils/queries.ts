@@ -12,6 +12,7 @@ import {
   type FinancialCategoryResponse,
   type FinancialEntryInput,
   type FinancialEntryResponse,
+  type FinancialEntriesFilters,
   type FinancialTransferInput,
   type FinancialMovementsResponse,
   type InventoryBalancesResponse,
@@ -32,11 +33,20 @@ import {
   type RecordsResponse,
   type RecordsFilters,
   type CreateRecordInput,
+  type UpdateRecordInput,
+  type RecordResponse,
   type ReconciliationCashResponse,
   type CashResponse,
   type TableResponse,
   type TablesResponse,
   type SaveTableInput,
+  type PermissionResponse,
+  type RoleResponse,
+  type RolesResponse,
+  type SaveRoleInput,
+  type SaveUserInput,
+  type UserManagementDetail,
+  type UserManagementResponse,
 } from "./types";
 import { api } from "./api";
 
@@ -135,12 +145,42 @@ export function useRecords(filters: RecordsFilters = {}) {
 
 export function useCreateRecord() {
   const queryClient = useQueryClient();
-  return useMutation<unknown, ApiError, CreateRecordInput>({
+  return useMutation<RecordResponse, ApiError, CreateRecordInput>({
     mutationFn: async (input) => {
-      const { data } = await api.post("/registros", input);
+      const { data } = await api.post<RecordResponse>("/registros", input);
       return data;
     },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["registros"] });
+    },
+  });
+}
+
+export function useRecord(recordID?: number) {
+  return useQuery({
+    queryKey: ["registros", recordID],
+    enabled: Boolean(recordID),
+    queryFn: async () => {
+      const { data } = await api.get<RecordResponse>(`/registros/${recordID}`);
+      return data;
+    },
+  });
+}
+
+export function useUpdateRecord(recordID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiError, UpdateRecordInput>({
+    mutationFn: async (input) => {
+      const { data } = await api.patch(
+        `/registros/${recordID}`,
+        input,
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["registros", recordID],
+      });
       await queryClient.invalidateQueries({ queryKey: ["registros"] });
     },
   });
@@ -531,6 +571,26 @@ export function useFinancialMovements() {
   });
 }
 
+export function useFinancialEntries(filters: FinancialEntriesFilters = {}) {
+  return useQuery({
+    queryKey: ["financeiro", "lancamentos", filters],
+    queryFn: async () => {
+      const { data } = await api.get<FinancialEntryResponse[]>(
+        "/financeiro/lancamentos",
+        {
+          params: {
+            ...filters,
+            nome: filters.nome?.trim() || undefined,
+            dataInicial: filters.dataInicial || undefined,
+            dataFinal: filters.dataFinal || undefined,
+          },
+        },
+      );
+      return data;
+    },
+  });
+}
+
 export function useCreateFinancialAccount() {
   const queryClient = useQueryClient();
 
@@ -671,6 +731,62 @@ export function useCreateFinancialEntry() {
   });
 }
 
+export function useSettleFinancialEntry() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    FinancialEntryResponse,
+    ApiError,
+    { entryID: number; accountID: number }
+  >({
+    mutationFn: async ({ entryID, accountID }) => {
+      const { data } = await api.post<FinancialEntryResponse>(
+        `/financeiro/lancamentos/${entryID}/baixar`,
+        { conta_id: accountID },
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        invalidateCash(queryClient),
+        queryClient.invalidateQueries({
+          queryKey: ["financeiro", "lancamentos"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["financeiro", "movimentacoes"],
+        }),
+      ]);
+    },
+  });
+}
+
+export function useReverseFinancialEntry() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    FinancialEntryResponse,
+    ApiError,
+    { entryID: number; reason: string }
+  >({
+    mutationFn: async ({ entryID, reason }) => {
+      const { data } = await api.post<FinancialEntryResponse>(
+        `/financeiro/lancamentos/${entryID}/estornar`,
+        { motivo: reason },
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        invalidateCash(queryClient),
+        queryClient.invalidateQueries({
+          queryKey: ["financeiro", "lancamentos"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["financeiro", "movimentacoes"],
+        }),
+      ]);
+    },
+  });
+}
+
 export function useFinalizeOrder(pedidoID: number) {
   const queryClient = useQueryClient();
 
@@ -720,5 +836,141 @@ export function useCancelOrder() {
       queryClient.setQueryData(["pedido", pedido.id], pedido);
       await queryClient.invalidateQueries({ queryKey: ["pedidos"] });
     },
+  });
+}
+
+export function useUsers(search?: string) {
+  return useQuery({
+    queryKey: ["usuarios", search?.trim() || ""],
+    queryFn: async () => {
+      const { data } = await api.get<UserManagementResponse[]>("/usuarios", {
+        params: { search: search?.trim() || undefined },
+      });
+      return data;
+    },
+  });
+}
+
+export function useUser(userID?: number) {
+  return useQuery({
+    queryKey: ["usuario", userID],
+    enabled: Boolean(userID),
+    queryFn: async () => {
+      const { data } = await api.get<UserManagementDetail>(`/usuarios/${userID}`);
+      return data;
+    },
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
+    mutationFn: async (input) => (await api.post("/usuarios", input)).data,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+  });
+}
+
+export function useUpdateUser(userID?: number) {
+  const queryClient = useQueryClient();
+  return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
+    mutationFn: async (input) => (await api.patch(`/usuarios/${userID}`, input)).data,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+        queryClient.invalidateQueries({ queryKey: ["usuario", userID] }),
+      ]);
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation<{ id: number; deletedAt: string }, ApiError, number>({
+    mutationFn: async (userID) => (await api.delete(`/usuarios/${userID}`)).data,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+  });
+}
+
+export function useRoles() {
+  return useQuery({
+    queryKey: ["cargos"],
+    queryFn: async () => (await api.get<RolesResponse[]>("/cargos")).data,
+  });
+}
+
+export function useRole(roleID?: number) {
+  return useQuery({
+    queryKey: ["cargo", roleID],
+    enabled: Boolean(roleID),
+    queryFn: async () => (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
+  });
+}
+
+export function useRoleDetails(roleIDs: number[]) {
+  return useQuery({
+    queryKey: ["cargos", "detalhes", roleIDs],
+    enabled: roleIDs.length > 0,
+    queryFn: async () =>
+      Promise.all(
+        roleIDs.map(async (roleID) =>
+          (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
+        ),
+      ),
+  });
+}
+
+export function usePermissions() {
+  return useQuery({
+    queryKey: ["permissoes"],
+    queryFn: async () => {
+      try {
+        return (await api.get<PermissionResponse[]>("/permissoes")).data;
+      } catch {
+        const { data: roles } = await api.get<RolesResponse[]>("/cargos");
+        const details = await Promise.all(
+          roles.map(async (role) =>
+            (await api.get<RoleResponse>(`/cargos/${role.id}`)).data,
+          ),
+        );
+        const unique = new Map<number, PermissionResponse>();
+        details.forEach((role) =>
+          role.permissoes.forEach((permission) =>
+            unique.set(permission.id, permission),
+          ),
+        );
+        return [...unique.values()].sort((a, b) =>
+          a.nome.localeCompare(b.nome, "pt-BR"),
+        );
+      }
+    },
+  });
+}
+
+export function useCreateRole() {
+  const queryClient = useQueryClient();
+  return useMutation<RoleResponse, ApiError, SaveRoleInput>({
+    mutationFn: async (input) => (await api.post("/cargos", input)).data,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+  });
+}
+
+export function useUpdateRole(roleID?: number) {
+  const queryClient = useQueryClient();
+  return useMutation<RoleResponse, ApiError, SaveRoleInput>({
+    mutationFn: async (input) => (await api.patch(`/cargos/${roleID}`, input)).data,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+        queryClient.invalidateQueries({ queryKey: ["cargo", roleID] }),
+      ]);
+    },
+  });
+}
+
+export function useDeleteRole() {
+  const queryClient = useQueryClient();
+  return useMutation<{ deletado: number }, ApiError, number>({
+    mutationFn: async (roleID) => (await api.delete(`/cargos/${roleID}`)).data,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
   });
 }

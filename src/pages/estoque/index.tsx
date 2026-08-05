@@ -164,46 +164,41 @@ export function Estoque() {
     [balancesQuery.data],
   );
 
-  const filteredConversions = useMemo(
-    () => {
-      const categoryMaterialIDs = new Set(
-        (balancesQuery.data?.dados ?? [])
-          .filter(
-            (material) =>
-              categoryFilter === "all" ||
-              material.categoria.id === Number(categoryFilter),
-          )
-          .map((material) => material.id),
-      );
-
-      return (conversionsQuery.data?.dados ?? [])
+  const filteredConversions = useMemo(() => {
+    const categoryMaterialIDs = new Set(
+      (balancesQuery.data?.dados ?? [])
         .filter(
-          (conversion) =>
+          (material) =>
             categoryFilter === "all" ||
-            categoryMaterialIDs.has(conversion.mat_origemID) ||
-            categoryMaterialIDs.has(conversion.mat_destinoID),
+            material.categoria.id === Number(categoryFilter),
         )
-        .filter((conversion) => {
-          if (!normalizedSearch) return true;
-          return [
-            conversion.id,
-            conversion.material_origem.nome,
-            conversion.material_destino.nome,
-            conversion.descricao,
-          ].some((value) =>
-            String(value)
-              .toLocaleLowerCase("pt-BR")
-              .includes(normalizedSearch),
-          );
-        });
-    },
-    [
-      balancesQuery.data,
-      categoryFilter,
-      conversionsQuery.data,
-      normalizedSearch,
-    ],
-  );
+        .map((material) => material.id),
+    );
+
+    return (conversionsQuery.data?.dados ?? [])
+      .filter(
+        (conversion) =>
+          categoryFilter === "all" ||
+          categoryMaterialIDs.has(conversion.mat_origemID) ||
+          categoryMaterialIDs.has(conversion.mat_destinoID),
+      )
+      .filter((conversion) => {
+        if (!normalizedSearch) return true;
+        return [
+          conversion.id,
+          conversion.material_origem.nome,
+          conversion.material_destino.nome,
+          conversion.descricao,
+        ].some((value) =>
+          String(value).toLocaleLowerCase("pt-BR").includes(normalizedSearch),
+        );
+      });
+  }, [
+    balancesQuery.data,
+    categoryFilter,
+    conversionsQuery.data,
+    normalizedSearch,
+  ]);
 
   async function handleReverseConversion() {
     if (reverseConfirmationID === null) return;
@@ -221,7 +216,7 @@ export function Estoque() {
   }
 
   return (
-    <LayoutBase activeTab="dashboard" pageTitle="Dashboard">
+    <LayoutBase activeTab="estoque" pageTitle="Estoque">
       <div className="space-y-6 font-sans">
         {/* Banner / Tab selector */}
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -643,13 +638,15 @@ export function Estoque() {
                         {conversion.material_origem.nome}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-rose-400">
-                        -{conversion.quantidade_origem.toLocaleString("pt-BR")} kg
+                        -{conversion.quantidade_origem.toLocaleString("pt-BR")}{" "}
+                        kg
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-100">
                         {conversion.material_destino.nome}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-emerald-400">
-                        +{conversion.quantidade_destino.toLocaleString("pt-BR")} kg
+                        +{conversion.quantidade_destino.toLocaleString("pt-BR")}{" "}
+                        kg
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span
@@ -666,7 +663,9 @@ export function Estoque() {
                         <div className="flex justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => setSelectedConversionID(conversion.id)}
+                            onClick={() =>
+                              setSelectedConversionID(conversion.id)
+                            }
                             title="Visualizar detalhes"
                             className="rounded-lg bg-slate-800 p-1.5 text-slate-300 hover:text-sky-400"
                           >
@@ -692,14 +691,15 @@ export function Estoque() {
               </table>
             </div>
 
-            {!conversionsQuery.isPending && filteredConversions.length === 0 && (
-              <div className="p-10 text-center">
-                <ArrowRightLeft className="h-8 w-8 text-slate-700 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-400">
-                  Nenhuma conversão atende aos critérios informados.
-                </p>
-              </div>
-            )}
+            {!conversionsQuery.isPending &&
+              filteredConversions.length === 0 && (
+                <div className="p-10 text-center">
+                  <ArrowRightLeft className="h-8 w-8 text-slate-700 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-400">
+                    Nenhuma conversão atende aos critérios informados.
+                  </p>
+                </div>
+              )}
           </div>
         )}
 
@@ -748,7 +748,11 @@ export function Estoque() {
                           {conversionDetailQuery.data.material_origem.nome}
                         </strong>
                         <span className="text-rose-400">
-                          -{conversionDetailQuery.data.quantidade_origem.toLocaleString("pt-BR")} kg
+                          -
+                          {conversionDetailQuery.data.quantidade_origem.toLocaleString(
+                            "pt-BR",
+                          )}{" "}
+                          kg
                         </span>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/30 p-3">
@@ -759,7 +763,11 @@ export function Estoque() {
                           {conversionDetailQuery.data.material_destino.nome}
                         </strong>
                         <span className="text-emerald-400">
-                          +{conversionDetailQuery.data.quantidade_destino.toLocaleString("pt-BR")} kg
+                          +
+                          {conversionDetailQuery.data.quantidade_destino.toLocaleString(
+                            "pt-BR",
+                          )}{" "}
+                          kg
                         </span>
                       </div>
                     </div>
@@ -825,7 +833,9 @@ export function Estoque() {
                   disabled={reverseConversion.isPending}
                   className="rounded-xl bg-rose-400 px-4 py-2.5 text-xs font-bold uppercase text-slate-950 disabled:opacity-50"
                 >
-                  {reverseConversion.isPending ? "Estornando..." : "Confirmar estorno"}
+                  {reverseConversion.isPending
+                    ? "Estornando..."
+                    : "Confirmar estorno"}
                 </button>
               </div>
             </div>

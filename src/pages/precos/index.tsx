@@ -18,6 +18,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { LayoutBase } from "../../components/LayoutBase";
+import PriceTablePrintModal from "../../components/modals/PriceTablePrintModal";
 import {
   useCreateMaterial,
   useCreateMaterialCategory,
@@ -57,8 +58,7 @@ export function Precos() {
   >("tariffs");
 
   // Export/Print Modal State
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-  const [printIsCustom, setPrintIsCustom] = useState(false);
+  const [printTableId, setPrintTableId] = useState<number | null>(null);
 
   // Search and general filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -452,9 +452,9 @@ export function Precos() {
                 </div>
                 <button
                   onClick={() => {
-                    setPrintIsCustom(false);
-                    setIsPrintModalOpen(true);
+                    if (defaultTable) setPrintTableId(defaultTable.id);
                   }}
+                  disabled={!defaultTable}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-all border border-slate-700 hover:border-slate-600 select-none cursor-pointer"
                 >
                   <Printer className="h-4 w-4 text-emerald-400" />
@@ -1049,6 +1049,17 @@ export function Precos() {
                           <Trash2 className="h-4 w-4" /> Excluir
                         </button>
                       )}
+
+                      {selectedTableId !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setPrintTableId(selectedTableId)}
+                          className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700"
+                        >
+                          <Printer className="h-4 w-4 text-emerald-400" />
+                          Compartilhar / Imprimir
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1339,6 +1350,14 @@ export function Precos() {
         )}
 
         {/* EXPORT AND PRINT PRICE TABLE MODAL */}
+        {printTableId !== null && (
+          <PriceTablePrintModal
+            tableId={printTableId}
+            materials={catalogMaterialsQuery.data ?? []}
+            baseTable={defaultTableQuery.data}
+            onClose={() => setPrintTableId(null)}
+          />
+        )}
       </div>
     </LayoutBase>
   );

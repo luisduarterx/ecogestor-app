@@ -25,6 +25,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
   const [bankAccountId, setBankAccountId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState("Pix");
+  const [status, setStatus] = useState<"recebido" | "pendente">("recebido");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,10 +34,12 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
       description.trim().length < 3 ||
       Number(value) <= 0 ||
       !category ||
-      !bankAccountId ||
-      !date
+      !date ||
+      (status === "recebido" && !bankAccountId)
     ) {
-      setError("Preencha descrição, valor, categoria, conta e data.");
+      setError(
+        "Preencha descrição, valor, categoria, data e conta quando recebido.",
+      );
       return;
     }
     try {
@@ -47,8 +50,10 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
         tipo: "RECEBER",
         categoria_id: Number(category),
         vencimento: date,
-        baixar_agora: true,
-        conta_id: Number(bankAccountId),
+        baixar_agora: status === "recebido",
+        ...(status === "recebido"
+          ? { conta_id: Number(bankAccountId) }
+          : {}),
       });
       setIsOpen(false);
     } catch (requestError) {
@@ -143,6 +148,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
               <select
                 value={bankAccountId}
                 onChange={(e) => setBankAccountId(e.target.value)}
+                disabled={status === "pendente"}
                 className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="">Selecione a conta...</option>
@@ -172,16 +178,37 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Data de Liquidação
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                Vencimento
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                Situação atual
+              </label>
+              <select
+                value={status}
+                onChange={(event) => {
+                  const newStatus = event.target.value as
+                    | "recebido"
+                    | "pendente";
+                  setStatus(newStatus);
+                  if (newStatus === "pendente") setBankAccountId("");
+                }}
+                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+              >
+                <option value="recebido">Recebido (dar baixa agora)</option>
+                <option value="pendente">A receber (sem baixa)</option>
+              </select>
+            </div>
           </div>
 
           {/* Footer */}

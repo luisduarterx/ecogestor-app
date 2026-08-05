@@ -1,38 +1,52 @@
 import { useState, type FormEvent } from "react";
 import { Users, X, Check, ShieldAlert } from "lucide-react";
 import { motion } from "motion/react";
-import { useCreateRecord, useTables } from "../../utils/queries";
+import {
+  useCreateRecord,
+  useTables,
+  useUpdateRecord,
+} from "../../utils/queries";
+import type { RecordResponse } from "../../utils/types";
 
 interface RecordModalProps {
   setIsOpen: (value: boolean) => void;
+  record?: RecordResponse;
+  onCreated?: (record: RecordResponse) => void;
 }
 
-export default function RecordModal({ setIsOpen }: RecordModalProps) {
+export default function RecordModal({
+  setIsOpen,
+  record,
+  onCreated,
+}: RecordModalProps) {
   const createRecord = useCreateRecord();
+  const updateRecord = useUpdateRecord(record?.id ?? 0);
   const tablesQuery = useTables();
-  const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [document, setDocument] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [stateRegistration, setStateRegistration] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
-  const [zipCode, setZipCode] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("SP");
-  const [district, setDistrict] = useState("");
-  const [addressNumber, setAddressNumber] = useState("");
-  const [addressComplement, setAddressComplement] = useState("");
-  const [bank, setBank] = useState("");
-  const [agency, setAgency] = useState("");
-  const [account, setAccount] = useState("");
-  const [paymentCpf, setPaymentCpf] = useState("");
-  const [pix, setPix] = useState("");
+  const [name, setName] = useState(record?.nome ?? "");
+  const [nickname, setNickname] = useState(record?.apelido ?? "");
+  const [document, setDocument] = useState(record?.documento ?? "");
+  const [birthDate, setBirthDate] = useState(record?.nascimento?.slice(0, 10) ?? "");
+  const [stateRegistration, setStateRegistration] = useState(record?.ie ?? "");
+  const [phone, setPhone] = useState(record?.telefone ?? "");
+  const [email, setEmail] = useState(record?.email ?? "");
+  const [address, setAddress] = useState(record?.endereco?.logradouro ?? "");
+  const [zipCode, setZipCode] = useState(record?.endereco?.cep ?? "");
+  const [city, setCity] = useState(record?.endereco?.cidade ?? "");
+  const [state, setState] = useState(record?.endereco?.estado ?? "SP");
+  const [district, setDistrict] = useState(record?.endereco?.bairro ?? "");
+  const [addressNumber, setAddressNumber] = useState(record?.endereco?.numero ?? "");
+  const [addressComplement, setAddressComplement] = useState(record?.endereco?.complemento ?? "");
+  const [bank, setBank] = useState(record?.dados_pagamento?.banco ?? "");
+  const [agency, setAgency] = useState(record?.dados_pagamento?.agencia ?? "");
+  const [account, setAccount] = useState(record?.dados_pagamento?.conta ?? "");
+  const [paymentCpf, setPaymentCpf] = useState(record?.dados_pagamento?.cpf ?? "");
+  const [pix, setPix] = useState(record?.dados_pagamento?.chave ?? "");
   const [personType, setPersonType] = useState<"FISICA" | "JURIDICA">(
-    "JURIDICA",
+    record?.tipo ?? "JURIDICA",
   );
-  const [priceTableId, setPriceTableId] = useState("");
+  const [priceTableId, setPriceTableId] = useState(
+    record ? String(record.tabela.id) : "",
+  );
   const [formError, setFormError] = useState("");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -64,54 +78,44 @@ export default function RecordModal({ setIsOpen }: RecordModalProps) {
     }
 
     try {
-      await createRecord.mutateAsync({
-        tipo: personType,
+      const commonData = {
         nome: name.trim(),
-        ...(personType === "FISICA"
-          ? {
-              cpf: normalizedDocument,
-              nascimento: birthDate || undefined,
-            }
-          : {
-              cnpj: normalizedDocument,
-              ie: stateRegistration.trim() || undefined,
-            }),
         apelido: nickname.trim() || undefined,
         email: email.trim() || undefined,
         telefone: phone.trim() || undefined,
         tabelaID: priceTableId ? Number(priceTableId) : undefined,
         pagamento:
-          bank.trim() ||
-          agency.trim() ||
-          account.trim() ||
-          normalizedPaymentCpf ||
-          pix.trim()
-            ? {
-                banco: bank.trim() || undefined,
-                agencia: agency.trim() || undefined,
-                conta: account.trim() || undefined,
-                cpf: normalizedPaymentCpf || undefined,
-                pix: pix.trim() || undefined,
-              }
+          bank.trim() || agency.trim() || account.trim() || normalizedPaymentCpf || pix.trim()
+            ? { banco: bank.trim() || undefined, agencia: agency.trim() || undefined, conta: account.trim() || undefined, cpf: normalizedPaymentCpf || undefined, pix: pix.trim() || undefined }
             : undefined,
         endereco:
-          normalizedZipCode ||
-          address.trim() ||
-          city.trim() ||
-          district.trim() ||
-          addressNumber.trim() ||
-          addressComplement.trim()
-            ? {
-                cep: normalizedZipCode || undefined,
-                logradouro: address.trim() || undefined,
-                cidade: city.trim() || undefined,
-                estado: state.trim().toUpperCase() || undefined,
-                bairro: district.trim() || undefined,
-                numero: addressNumber.trim() || undefined,
-                complemento: addressComplement.trim() || undefined,
-              }
+          normalizedZipCode || address.trim() || city.trim() || district.trim() || addressNumber.trim() || addressComplement.trim()
+            ? { cep: normalizedZipCode || undefined, logradouro: address.trim() || undefined, cidade: city.trim() || undefined, estado: state.trim().toUpperCase() || undefined, bairro: district.trim() || undefined, numero: addressNumber.trim() || undefined, complemento: addressComplement.trim() || undefined }
             : undefined,
-      });
+      };
+      if (record) {
+        await updateRecord.mutateAsync({
+          ...commonData,
+          ...(personType === "FISICA"
+            ? { fisica: { cpf: normalizedDocument, nascimento: birthDate || undefined } }
+            : { juridica: { cnpj: normalizedDocument, ie: stateRegistration.trim() || undefined } }),
+        });
+      } else {
+        const createdRecord = await createRecord.mutateAsync({
+          ...commonData,
+          tipo: personType,
+          ...(personType === "FISICA"
+            ? {
+                cpf: normalizedDocument,
+                nascimento: birthDate || undefined,
+              }
+            : {
+                cnpj: normalizedDocument,
+                ie: stateRegistration.trim() || undefined,
+              }),
+        });
+        onCreated?.(createdRecord);
+      }
       setIsOpen(false);
     } catch (error) {
       const apiError = error as { response?: { data?: { mensagem?: string } } };
@@ -134,7 +138,7 @@ export default function RecordModal({ setIsOpen }: RecordModalProps) {
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/20">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-emerald-400" />
-            <h3 className="font-bold text-slate-100">Cadastro de cliente / fornecedor</h3>
+            <h3 className="font-bold text-slate-100">{record ? "Editar cliente / fornecedor" : "Cadastro de cliente / fornecedor"}</h3>
           </div>
           <button onClick={() => setIsOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer">
             <X className="h-5 w-5" />
@@ -153,7 +157,7 @@ export default function RecordModal({ setIsOpen }: RecordModalProps) {
             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de pessoa</label>
             <div className="grid grid-cols-2 gap-2">
               {(["FISICA", "JURIDICA"] as const).map((type) => (
-                <button key={type} type="button" onClick={() => setPersonType(type)} className={`py-2 rounded-xl text-[10px] font-bold uppercase border ${personType === type ? "bg-emerald-400 border-transparent text-slate-950" : "bg-slate-950/20 border-slate-800 text-slate-400"}`}>
+                <button key={type} type="button" disabled={Boolean(record)} onClick={() => setPersonType(type)} className={`py-2 rounded-xl text-[10px] font-bold uppercase border disabled:cursor-not-allowed ${personType === type ? "bg-emerald-400 border-transparent text-slate-950" : "bg-slate-950/20 border-slate-800 text-slate-400"}`}>
                   {type === "FISICA" ? "Pessoa física" : "Pessoa jurídica"}
                 </button>
               ))}
@@ -230,9 +234,9 @@ export default function RecordModal({ setIsOpen }: RecordModalProps) {
 
           <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
             <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs uppercase cursor-pointer">Cancelar</button>
-            <button type="submit" disabled={createRecord.isPending} className="px-5 py-2 bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center gap-1.5">
+            <button type="submit" disabled={createRecord.isPending || updateRecord.isPending} className="px-5 py-2 bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center gap-1.5">
               <Check className="h-4 w-4" />
-              {createRecord.isPending ? "Salvando..." : "Salvar cadastro"}
+              {createRecord.isPending || updateRecord.isPending ? "Salvando..." : record ? "Salvar alterações" : "Salvar cadastro"}
             </button>
           </div>
         </form>

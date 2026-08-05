@@ -15,10 +15,12 @@ export default function ButtonDashboard({
   color_icon,
   label,
   description,
+  onClick,
 }: ButtonDashboardProps) {
   return (
     <button
-      onClick={() => {}}
+      type="button"
+      onClick={onClick}
       className={`flex flex-col items-start p-4 ${cta ? `bg-emerald-400 hover:bg-emerald-300 text-slate-950` : "bg-slate-900 hover:bg-slate-800/80 text-slate-100"}   rounded-2xl transition-all duration-150 text-left border border-transparent shadow-xs cursor-pointer group`}
     >
       <div

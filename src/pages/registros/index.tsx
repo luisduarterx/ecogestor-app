@@ -1,7 +1,8 @@
 import { useDeferredValue, useState } from "react";
-import { Users, Search, Plus, Phone, Mail, DollarSign } from "lucide-react";
+import { Users, Search, Plus, Phone, Mail, DollarSign, Pencil } from "lucide-react";
 import { LayoutBase } from "../../components/LayoutBase";
 import RecordModal from "../../components/modals/RecordModal";
+import EditRecordModal from "../../components/modals/EditRecordModal";
 import { useRecords } from "../../utils/queries";
 
 export function Registro() {
@@ -11,6 +12,7 @@ export function Registro() {
     "all",
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editRecordID, setEditRecordID] = useState<number | null>(null);
   const recordsQuery = useRecords({ search: deferredSearch, take: 100 });
   const filteredRecords = (recordsQuery.data ?? []).filter(
     (record) => typeFilter === "all" || record.tipo === typeFilter,
@@ -108,10 +110,18 @@ export function Registro() {
                   </div>
                 </div>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-800/50">
+              <div className="mt-5 pt-3 border-t border-slate-800/50 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-mono text-slate-500">
                   Cadastrado: {new Date(record.criado_em).toLocaleDateString("pt-BR")}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setEditRecordID(record.id)}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[10px] font-bold uppercase text-slate-300 hover:border-emerald-500/30 hover:text-emerald-400"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                </button>
               </div>
             </div>
           ))}
@@ -130,6 +140,14 @@ export function Registro() {
         </div>
 
         {isModalOpen && <RecordModal setIsOpen={setIsModalOpen} />}
+        {editRecordID && (
+          <EditRecordModal
+            recordID={editRecordID}
+            setIsOpen={(open) => {
+              if (!open) setEditRecordID(null);
+            }}
+          />
+        )}
       </div>
     </LayoutBase>
   );

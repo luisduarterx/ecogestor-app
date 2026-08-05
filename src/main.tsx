@@ -16,41 +16,46 @@ import { Registro } from "./pages/registros/index.tsx";
 import { LoggedUserProvider } from "./context/LoggedUser.tsx";
 import { ProviderQueryClient } from "./context/QueryClient.tsx";
 import { ProtectedRoute } from "./pages/ProtectedRoutes.tsx";
+import { Usuarios } from "./pages/usuarios/index.tsx";
 
 const router = createBrowserRouter([
-  {element:<ProtectedRoute/>,
-  children:[
-{
-    path: "/dashboard",
-    element: <Dashboard />,
-  },
   {
-    path: "/pedidos",
-    element: <Pedidos />,
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: "/dashboard",
+        element: <Dashboard />,
+      },
+      {
+        path: "/pedidos",
+        element: <Pedidos />,
+      },
+      {
+        path: "/estoque",
+        element: <Estoque />,
+      },
+      {
+        path: "/precos",
+        element: <Precos />,
+      },
+      {
+        path: "/financeiro",
+        element: <Financeiro />,
+      },
+      {
+        path: "/usuarios",
+        element: <Usuarios />,
+      },
+      {
+        path: "/registros",
+        element: <Registro />,
+      },
+    ],
   },
-  {
-    path: "/estoque",
-    element: <Estoque />,
-  },
-  {
-    path: "/precos",
-    element: <Precos />,
-  },
-  {
-    path: "/financeiro",
-    element: <Financeiro />,
-  },
-  {
-    path: "/registros",
-    element: <Registro />,
-  },
-  ],
-},
   {
     path: "/",
     element: <Login />,
   },
-  
 ]);
 
 createRoot(document.getElementById("root")!).render(

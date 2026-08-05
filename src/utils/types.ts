@@ -94,7 +94,6 @@ export type FinalizeOrderInput = {
   titulos: Array<{
     valor: number;
     vencimento: string;
-    categoria_id: number;
     titulo: string;
     descricao: string;
     baixar_agora: boolean;
@@ -300,10 +299,13 @@ export type CreateMaterialInput = {
 };
 export type RecordResponse = {
   id: number;
-  nome_razao: string;
+  nome: string;
   apelido?: string;
-  criadoEm: string;
-  tabelaID: number;
+  documento: string;
+  ie?: string | null;
+  nascimento?: string | null;
+  criado_em: string;
+  tabela: { id: number; nome: string; padrao: boolean };
   email?: string;
   telefone?: string;
   dados_pagamento?: {
@@ -326,14 +328,6 @@ export type RecordResponse = {
     logradouro?: string;
     numero?: string;
     complemento?: string;
-  };
-  fisica?: { id: number; cpf: string; nascimento: string; registroID: number };
-  juridica?: {
-    id: number;
-    cnpj: string;
-    ie: string;
-    fantasia: string;
-    registroID: number;
   };
   tipo: "FISICA" | "JURIDICA";
 };
@@ -385,6 +379,17 @@ export type CreateRecordInput = {
     numero?: string;
     complemento?: string;
   };
+};
+export type UpdateRecordInput = {
+  nome?: string;
+  tabelaID?: number;
+  apelido?: string;
+  email?: string;
+  telefone?: string;
+  pagamento?: CreateRecordInput["pagamento"];
+  endereco?: CreateRecordInput["endereco"];
+  fisica?: { cpf?: string; nascimento?: string };
+  juridica?: { cnpj: string; ie?: string };
 };
 export type TablesResponse = {
   id: number;
@@ -474,6 +479,22 @@ export type FinancialEntryResponse = {
   status: "ABERTO" | "PAGO" | "CANCELADO";
   valor: number;
   tipo: "PAGAR" | "RECEBER";
+  titulo: string;
+  descricao: string;
+  vencimento: string;
+  data_baixa: string | null;
+  criado_em: string;
+  desconto: number;
+  acrescimo: number;
+  categoria: { id: number; nome: string };
+  registro: { id: number; nome_razao: string; apelido: string | null } | null;
+};
+export type FinancialEntriesFilters = {
+  status?: FinancialEntryResponse["status"];
+  tipo?: FinancialEntryResponse["tipo"];
+  nome?: string;
+  dataInicial?: string;
+  dataFinal?: string;
 };
 
 export type FinancialMovementResponse = {
@@ -529,9 +550,34 @@ export type CashResponse = {
 export type RoleResponse = {
   id: number;
   nome: string;
-  permissoes: { id: number; nome: string; descricao: string }[];
+  permissoes: PermissionResponse[];
 };
 export type RolesResponse = {
   id: number;
   nome: string;
+};
+export type PermissionResponse = {
+  id: number;
+  nome: string;
+  descricao: string | null;
+};
+export type UserManagementResponse = {
+  id: number;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  cargoID: number;
+};
+export type UserManagementDetail = Omit<UserManagementResponse, "cargoID"> & {
+  cargo: { id: number; nome: string };
+};
+export type SaveUserInput = {
+  nome: string;
+  email: string;
+  telefone?: string;
+  cargoID: number;
+};
+export type SaveRoleInput = {
+  nome: string;
+  permissoes: number[];
 };

@@ -7,13 +7,13 @@ import {
   ShoppingBag,
   Trash2,
   User,
+  UserPlus,
 } from "lucide-react";
 import {
   useAddOrderItem,
   useApplyOrderRecordTable,
   useFinalizeOrder,
   useFinancialAccounts,
-  useFinancialCategories,
   useMaterials,
   useOrder,
   useRecords,
@@ -24,6 +24,8 @@ import {
   fetchTable,
 } from "../utils/queries";
 import type { ApiError } from "../utils/types";
+import type { RecordResponse } from "../utils/types";
+import RecordModal from "./modals/RecordModal";
 
 interface NewOrderProps {
   pedidoID: number;
@@ -80,9 +82,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
   const aplicarTabelaDoRegistro = useApplyOrderRecordTable(pedidoID);
   const adicionarItem = useAddOrderItem(pedidoID);
   const removerItem = useRemoveOrderItem(pedidoID);
-  const categoriasQuery = useFinancialCategories(
-    tipo === "COMPRA" ? "DESPESA" : "RECEITA",
-  );
   const contasQuery = useFinancialAccounts();
   const finalizarPedido = useFinalizeOrder(pedidoID);
 
@@ -95,7 +94,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
   const [impureza, setImpureza] = useState("0");
   const [preco, setPreco] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [categoriaID, setCategoriaID] = useState("");
   const [prazo, setPrazo] = useState<"vista" | "30d" | "60d">("vista");
   const [quantidadeTitulos, setQuantidadeTitulos] = useState(1);
   const [vencimentos, setVencimentos] = useState([dataLocalISO()]);
@@ -109,6 +107,7 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
   );
   const [checkoutError, setCheckoutError] = useState("");
   const [isTableConfirmationOpen, setIsTableConfirmationOpen] = useState(false);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
   const pedido = pedidoQuery.data;
   const normalizedRecordSearch = recordSearch.trim().toLocaleLowerCase("pt-BR");
@@ -151,7 +150,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
     (tipo === "COMPRA" &&
       Boolean(registroSelecionado) &&
       tabelaDoRegistroQuery.isPending) ||
-    categoriasQuery.isPending ||
     contasQuery.isPending;
   const erroDeCarga =
     pedidoQuery.isError ||
@@ -159,7 +157,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
     materiaisQuery.isError ||
     tabelasQuery.isError ||
     (tipo === "COMPRA" && tabelaDoRegistroQuery.isError) ||
-    categoriasQuery.isError ||
     contasQuery.isError;
 
   function selecionarMaterial(value: string) {
@@ -222,6 +219,50 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
     } catch (error) {
       setFeedback(
         mensagemDoErro(error, "Não foi possível definir o registro."),
+      );
+    }
+  }
+
+  async function selecionarRegistroCriado(record: RecordResponse) {
+    setFeedback("");
+    setRecordSearch(`${record.apelido || record.nome} — ${record.documento}`);
+    setRecordSearchTouched(false);
+
+    try {
+      const refreshedRecords = await registrosQuery.refetch();
+      const createdRecord =
+        refreshedRecords.data?.find((item) => item.id === record.id) ?? record;
+      await definirRegistro.mutateAsync(record.id);
+
+      if (tipo === "COMPRA" && materialID && createdRecord.tabela?.id) {
+        const material = materiaisQuery.data?.find(
+          (item) => item.id === Number(materialID),
+        );
+        const tabela = await fetchTable(createdRecord.tabela.id);
+        const precoDoRegistro = tabela.materiais.find(
+          (item) => item.materialID === Number(materialID),
+        )?.preco_compra;
+        setPreco(
+          material ? String(precoDoRegistro ?? material.preco_compra) : "",
+        );
+      }
+
+      const tabelaPadrao = tabelasQuery.data?.find((tabela) => tabela.padrao);
+      if (
+        tipo === "COMPRA" &&
+        createdRecord.tabela?.id &&
+        tabelaPadrao &&
+        createdRecord.tabela.id !== tabelaPadrao.id &&
+        (pedido?.items.length ?? 0) > 0
+      ) {
+        setIsTableConfirmationOpen(true);
+      }
+    } catch (error) {
+      setFeedback(
+        mensagemDoErro(
+          error,
+          "O registro foi criado, mas não foi possível vinculá-lo ao pedido.",
+        ),
       );
     }
   }
@@ -345,12 +386,8 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
       setCheckoutError("Adicione ao menos um item antes de finalizar.");
       return;
     }
-    if (
-      !categoriaID ||
-      titulo.trim().length < 3 ||
-      descricao.trim().length < 3
-    ) {
-      setCheckoutError("Preencha categoria, título e descrição.");
+    if (titulo.trim().length < 3 || descricao.trim().length < 3) {
+      setCheckoutError("Preencha o título e a descrição.");
       return;
     }
     if (baixarAgora && !contaID) {
@@ -378,7 +415,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
           return {
             valor,
             vencimento: vencimentos[indice],
-            categoria_id: Number(categoriaID),
             titulo: `${titulo.trim()}${identificacao}`,
             descricao: descricao.trim(),
             baixar_agora: baixarAgora,
@@ -429,10 +465,21 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
         )}
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
-            <h3 className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-              <User className="h-4 w-4 text-emerald-400" />
-              Registro do pedido
-            </h3>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <User className="h-4 w-4 text-emerald-400" />
+                Registro do pedido
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsRecordModalOpen(true)}
+                disabled={pedido.status !== "ABERTO"}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Novo cliente / fornecedor
+              </button>
+            </div>
             <div className="relative">
               <input
                 type="search"
@@ -719,23 +766,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
 
         <form onSubmit={(event) => void finalizar(event)} className="space-y-4">
           <label className="block text-[10px] font-bold uppercase text-slate-400">
-            Categoria financeira
-            <select
-              required
-              value={categoriaID}
-              onChange={(event) => setCategoriaID(event.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300"
-            >
-              <option value="">Selecione</option>
-              {(categoriasQuery.data ?? []).map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-[10px] font-bold uppercase text-slate-400">
             Quantidade de títulos
             <select
               value={quantidadeTitulos}
@@ -884,6 +914,13 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
           </button>
         </form>
       </div>
+
+      {isRecordModalOpen && (
+        <RecordModal
+          setIsOpen={setIsRecordModalOpen}
+          onCreated={(record) => void selecionarRegistroCriado(record)}
+        />
+      )}
 
       {isTableConfirmationOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
