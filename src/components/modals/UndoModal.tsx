@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import type { FormEvent } from "react";
 import { RotateCcw, X, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -12,11 +12,13 @@ export interface LedgerItem {
 
 interface UndoModalProps {
   setIsOpen: (value: boolean) => void;
-  item: any;
+  item: LedgerItem;
 }
 
 export default function UndoModal({ setIsOpen, item }: UndoModalProps) {
-  const [error, setError] = useState("");
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+  };
 
   return (
     <div
@@ -43,13 +45,7 @@ export default function UndoModal({ setIsOpen, item }: UndoModalProps) {
           </button>
         </div>
 
-        <form onSubmit={() => {}} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
-              {error}
-            </div>
-          )}
-
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="flex items-start gap-2.5 text-xs text-slate-400 bg-rose-500/5 border border-rose-500/20 p-3.5 rounded-xl">
             <AlertCircle className="h-4.5 w-4.5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
             <div className="space-y-1">

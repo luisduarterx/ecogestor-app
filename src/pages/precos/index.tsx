@@ -31,6 +31,12 @@ import {
   useUpdateTable,
 } from "../../utils/queries";
 import type { ApiError } from "../../utils/types";
+
+interface LegacyPriceTableItem {
+  id: string;
+  materialName: string;
+}
+
 export function Precos() {
   const handlePriceOverrideChange = (matName: string, value: string) => {
     setTablePricesEdit((prev) => ({
@@ -39,20 +45,12 @@ export function Precos() {
     }));
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState("");
+  const [selectedItemId] = useState("");
   const [editBuyPrice, setEditBuyPrice] = useState("");
   const [editSellPrice, setEditSellPrice] = useState("");
   const [editMinQty, setEditMinQty] = useState("");
-  const [editError, setEditError] = useState("");
-  const [priceTable, setPriceTable] = useState([]);
-  const handleOpenEditModal = (item) => {
-    setSelectedItemId(item.id);
-    setEditBuyPrice(item.buyPrice.toString());
-    setEditSellPrice(item.sellPrice.toString());
-    setEditMinQty(item.minQty.toString());
-    setEditError("");
-    setIsEditModalOpen(true);
-  };
+  const [editError] = useState("");
+  const [priceTable] = useState<LegacyPriceTableItem[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<
     "tariffs" | "materials" | "customTables"
   >("tariffs");
