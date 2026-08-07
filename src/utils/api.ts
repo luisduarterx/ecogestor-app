@@ -2,8 +2,7 @@ import axios from "axios";
 import type { ApiError } from "./types";
 
 export const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL?.trim() || "http://localhost:4000/v1/",
+  baseURL: import.meta.env.VITE_API_URL?.trim() || "http://localhost:4000/v1/",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -26,10 +25,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      if (error.response.status === 401) {
-        localStorage.removeItem("sid");
-      }
-
       console.error(
         `[API Error ${error.response.status}]:`,
         error.response.data,

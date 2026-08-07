@@ -2,17 +2,20 @@ import type { FormEvent } from "react";
 import { RotateCcw, X, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 
-export interface LedgerItem {
-  id: string;
+export interface FinancialOperationLog {
+  id: number;
+  date: string;
   type: "income" | "expense";
   description: string;
+  account: string;
+  category: string;
   value: number;
-  account?: string;
+  status: "Líquido" | "Pendente";
 }
 
 interface UndoModalProps {
   setIsOpen: (value: boolean) => void;
-  item: LedgerItem;
+  item: FinancialOperationLog;
 }
 
 export default function UndoModal({ setIsOpen, item }: UndoModalProps) {

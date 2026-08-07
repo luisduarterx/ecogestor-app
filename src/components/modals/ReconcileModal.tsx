@@ -6,17 +6,19 @@ import {
   useSettleFinancialEntry,
 } from "../../utils/queries";
 
-export interface LedgerItem {
+export interface ReconcileItemType {
   id: number;
+  date: string;
   type: "income" | "expense";
   description: string;
+  account: string;
+  category: string;
   value: number;
-  account?: string;
 }
 
 interface ReconcileModalProps {
   setIsOpen: (value: boolean) => void;
-  item: LedgerItem;
+  item: ReconcileItemType;
 }
 
 export default function ReconcileModal({
@@ -37,7 +39,7 @@ export default function ReconcileModal({
     }
     try {
       await settleEntry.mutateAsync({
-        entryID: item.id,
+        entryID: Number(item.id),
         accountID: Number(bankAccountId),
       });
       setIsOpen(false);
@@ -66,7 +68,10 @@ export default function ReconcileModal({
             <Check className="h-5 w-5 text-emerald-400" />
             <h3 className="font-bold text-slate-100">Liquidação / Dar baixa</h3>
           </div>
-          <button onClick={() => setIsOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer">
+          <button
+            onClick={() => setIsOpen(false)}
+            className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -82,16 +87,24 @@ export default function ReconcileModal({
           <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 space-y-2">
             <div className="flex justify-between text-xs">
               <span className="font-mono text-slate-500">LANÇAMENTO</span>
-              <span className="font-mono font-bold text-slate-300">#{item.id}</span>
+              <span className="font-mono font-bold text-slate-300">
+                #{item.id}
+              </span>
             </div>
             <div className="flex justify-between gap-4 text-xs">
               <span className="text-slate-500">Descrição</span>
-              <span className="text-right font-semibold text-slate-200">{item.description}</span>
+              <span className="text-right font-semibold text-slate-200">
+                {item.description}
+              </span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Valor</span>
               <span className="font-mono text-sm font-extrabold text-slate-100">
-                R$ {item.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R${" "}
+                {item.value.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
@@ -108,19 +121,34 @@ export default function ReconcileModal({
               <option value="">Selecione a conta...</option>
               {(accountsQuery.data ?? []).map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.nome} — R$ {account.saldo_atual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  {account.nome} — R${" "}
+                  {account.saldo_atual.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
                 </option>
               ))}
             </select>
           </label>
 
           <p className="text-[10px] leading-relaxed text-slate-500">
-            A data da baixa será registrada automaticamente pela API no momento da confirmação.
+            A data da baixa será registrada automaticamente pela API no momento
+            da confirmação.
           </p>
 
           <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-            <button type="button" onClick={() => setIsOpen(false)} disabled={settleEntry.isPending} className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs uppercase disabled:opacity-50">Cancelar</button>
-            <button type="submit" disabled={settleEntry.isPending || accountsQuery.isPending} className="px-5 py-2 bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs uppercase disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              disabled={settleEntry.isPending}
+              className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs uppercase disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={settleEntry.isPending || accountsQuery.isPending}
+              className="px-5 py-2 bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs uppercase disabled:opacity-50"
+            >
               {settleEntry.isPending ? "Processando..." : "Confirmar baixa"}
             </button>
           </div>
