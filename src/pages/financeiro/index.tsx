@@ -26,7 +26,9 @@ import FinancesTransferModal from "../../components/modals/FinancesTransferModal
 import CashCloseModal from "../../components/modals/CashCloseModal";
 import CashOpenModal from "../../components/modals/CashOpenModal";
 import BankModal from "../../components/modals/BankModal";
-import ReconcileModal from "../../components/modals/ReconcileModal";
+import ReconcileModal, {
+  type ReconcileItemType,
+} from "../../components/modals/ReconcileModal";
 import IncomeModal from "../../components/modals/IncomeModal";
 import ExpenseModal from "../../components/modals/ExpenseModal";
 import UndoModal from "../../components/modals/UndoModal";
@@ -57,9 +59,10 @@ interface CashSession {
   bankAccountId: string;
   bankAccountName: string;
 }
+type FlowFilterType = "all" | "income" | "expense";
 
-interface FinancialOperationLog {
-  id: string;
+export interface FinancialOperationLog {
+  id: number;
   date: string;
   type: "income" | "expense";
   description: string;
@@ -68,12 +71,11 @@ interface FinancialOperationLog {
   value: number;
   status: "Líquido" | "Pendente";
 }
+
 export function Financeiro() {
   const [activeSubTab, setActiveSubTab] = useState("fluxo");
   const [searchTerm, setSearchTerm] = useState("");
-  const [flowFilter, setFlowFilter] = useState<"all" | "income" | "expense">(
-    "all",
-  );
+  const [flowFilter, setFlowFilter] = useState<FlowFilterType>("all");
 
   // --- CASH REGISTER STATE & LOCAL PERSISTENCE ---
   const cashReconciliationQuery = useCashReconciliation();
@@ -140,7 +142,7 @@ export function Financeiro() {
   const operationLog = useMemo<FinancialOperationLog[]>(
     () =>
       (financialMovementsQuery.data?.dados ?? []).map((movement) => ({
-        id: `M-${movement.id}`,
+        id: movement.id,
         date: new Intl.DateTimeFormat("pt-BR", {
           dateStyle: "short",
           timeStyle: "short",
@@ -218,11 +220,13 @@ export function Financeiro() {
 
   // 2. Dar Baixa Modal State
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
-  const [reconcileItem, setReconcileItem] = useState<any>(null);
+  const [reconcileItem, setReconcileItem] = useState<ReconcileItemType | null>(
+    null,
+  );
 
   // 3. Desfazer Operação Modal State
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
-  const [undoItem, setUndoItem] = useState<any>(null);
+  const [undoItem, setUndoItem] = useState<FinancialOperationLog | null>(null);
   const [reverseEntryItem, setReverseEntryItem] =
     useState<ReversibleFinancialEntry | null>(null);
   const [openSearchTerm, setOpenSearchTerm] = useState("");
@@ -851,11 +855,13 @@ export function Financeiro() {
                   {/* Toggle Income/Expense */}
                   <select
                     value={flowFilter}
-                    onChange={(e) => setFlowFilter(e.target.value as any)}
+                    onChange={(e) =>
+                      setFlowFilter(e.target.value as FlowFilterType)
+                    }
                     className="bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                   >
                     <option value="all">Ver Tudo</option>
-                    <option value="income">Entradas (+)</option>
+                    <option value="income">Entradas (+)</option>h
                     <option value="expense">Saídas (-)</option>
                   </select>
 
@@ -893,7 +899,6 @@ export function Financeiro() {
                       <th className="py-3 px-4">Categoria</th>
                       <th className="py-3 px-4 text-right">Valor Operação</th>
                       <th className="py-3 px-4 text-center">Situação</th>
-                      <th className="py-3 px-4 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -954,34 +959,6 @@ export function Financeiro() {
                             ></span>
                             {log.status}
                           </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {log.status === "Pendente" && (
-                              <button
-                                onClick={() => {
-                                  setReconcileItem(log);
-
-                                  setIsReconcileModalOpen(true);
-                                }}
-                                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer border border-emerald-500/20 hover:border-emerald-500/40"
-                                title="Dar Baixa (Registrar Recebimento/Pagamento)"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                setUndoItem(log);
-
-                                setIsUndoModalOpen(true);
-                              }}
-                              className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer border border-rose-500/20 hover:border-rose-500/40"
-                              title="Desfazer / Estornar Operação"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1319,10 +1296,12 @@ export function Financeiro() {
                                   onClick={() => {
                                     setReconcileItem({
                                       id: item.id,
+                                      date: item.rawDate,
                                       type: item.type,
                                       description: item.description,
-                                      value: item.value,
                                       account: item.account,
+                                      category: item.category,
+                                      value: item.value,
                                     });
                                     setIsReconcileModalOpen(true);
                                   }}
@@ -1374,13 +1353,16 @@ export function Financeiro() {
       {isReconcileModalOpen && (
         <ReconcileModal
           setIsOpen={setIsReconcileModalOpen}
-          item={reconcileItem}
+          item={reconcileItem as FinancialOperationLog}
         />
       )}
       {isIncomeModalOpen && <IncomeModal setIsOpen={setIsIncomeModalOpen} />}
       {isExpenseModalOpen && <ExpenseModal setIsOpen={setIsExpenseModalOpen} />}
       {isUndoModalOpen && (
-        <UndoModal setIsOpen={setIsUndoModalOpen} item={undoItem} />
+        <UndoModal
+          setIsOpen={setIsUndoModalOpen}
+          item={undoItem as FinancialOperationLog}
+        />
       )}
       {reverseEntryItem && (
         <ReverseFinancialEntryModal

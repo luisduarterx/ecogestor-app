@@ -3,7 +3,6 @@ import {
   Package,
   DollarSign,
   Users,
-  Database,
   TrendingUp,
   LogOut,
   Leaf,
@@ -76,12 +75,6 @@ export default function Sidebar({
       label: "Gestão de Usuários",
       icon: UserCog,
       link: "/usuarios",
-    },
-    {
-      id: "records",
-      label: "Gestão de Registros",
-      icon: Database,
-      link: "/registros",
     },
   ];
   const [activeTab, setActiveTab] = useState(tab);

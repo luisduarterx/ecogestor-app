@@ -17,6 +17,7 @@ import { LoggedUserProvider } from "./context/LoggedUser.tsx";
 import { ProviderQueryClient } from "./context/QueryClient.tsx";
 import { ProtectedRoute } from "./pages/ProtectedRoutes.tsx";
 import { Usuarios } from "./pages/usuarios/index.tsx";
+import { GuestRoute } from "./pages/GuestRoute.tsx";
 
 const router = createBrowserRouter([
   {
@@ -53,8 +54,13 @@ const router = createBrowserRouter([
     ],
   },
   {
-    path: "/",
-    element: <Login />,
+    element: <GuestRoute />,
+    children: [
+      {
+        path: "/",
+        element: <Login />,
+      },
+    ],
   },
 ]);
 
