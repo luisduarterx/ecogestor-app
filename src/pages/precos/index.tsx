@@ -87,7 +87,9 @@ export function Precos() {
   const [tableFormError, setTableFormError] = useState("");
   const [deleteTableConfirmationOpen, setDeleteTableConfirmationOpen] =
     useState(false);
-  const [tableDrafts, setTableDrafts] = useState<Record<number, TableDraft>>({});
+  const [tableDrafts, setTableDrafts] = useState<Record<number, TableDraft>>(
+    {},
+  );
   const [tableEditMsg, setTableEditMsg] = useState("");
   const [catalogView, setCatalogView] = useState<"materials" | "categories">(
     "materials",
@@ -336,8 +338,7 @@ export function Precos() {
       editingTableName.trim().length < 3 ||
       tableMaterials.some(
         (material) =>
-          !Number.isFinite(material.preco_compra) ||
-          material.preco_compra <= 0,
+          !Number.isFinite(material.preco_compra) || material.preco_compra <= 0,
       )
     ) {
       setTableFormError(
@@ -569,16 +570,16 @@ export function Precos() {
                     {!tablesQuery.isPending &&
                       !defaultTableQuery.isPending &&
                       defaultTablePrices.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={9}
-                          className="py-8 text-center text-slate-500 text-xs"
-                        >
-                          {defaultTable
-                            ? "Nenhum material encontrado para os filtros ativos."
-                            : "Nenhuma tabela padrão foi encontrada."}
-                        </td>
-                      </tr>
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="py-8 text-center text-slate-500 text-xs"
+                          >
+                            {defaultTable
+                              ? "Nenhum material encontrado para os filtros ativos."
+                              : "Nenhuma tabela padrão foi encontrada."}
+                          </td>
+                        </tr>
                       )}
                   </tbody>
                 </table>
@@ -936,10 +937,12 @@ export function Precos() {
                             {category.nome}
                           </td>
                           <td className="py-3 px-4 text-right font-mono text-slate-300">
-                            {(catalogMaterialsQuery.data ?? []).filter(
-                              (material) =>
-                                material.categoria.id === category.id,
-                            ).length}
+                            {
+                              (catalogMaterialsQuery.data ?? []).filter(
+                                (material) =>
+                                  material.categoria.id === category.id,
+                              ).length
+                            }
                           </td>
                         </tr>
                       ))}
@@ -1024,9 +1027,13 @@ export function Precos() {
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-400 font-bold mt-1">
-                        {tbl.padrao ? "Tabela geral do pátio" : "Tabela de fornecedor"}
+                        {tbl.padrao
+                          ? "Tabela geral do pátio"
+                          : "Tabela de fornecedor"}
                         {" · "}
-                        {new Intl.DateTimeFormat("pt-BR").format(new Date(tbl.updatedAt))}
+                        {new Intl.DateTimeFormat("pt-BR").format(
+                          new Date(tbl.updatedAt),
+                        )}
                       </span>
                     </button>
                   ))}
@@ -1224,7 +1231,10 @@ export function Precos() {
                     Excluir tabela?
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    A tabela <strong className="text-slate-200">{selectedTable.nome}</strong>{" "}
+                    A tabela{" "}
+                    <strong className="text-slate-200">
+                      {selectedTable.nome}
+                    </strong>{" "}
                     e todos os preços de compra vinculados a ela serão
                     removidos.
                   </p>

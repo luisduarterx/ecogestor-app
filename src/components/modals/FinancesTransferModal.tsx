@@ -29,7 +29,9 @@ export default function FinancesTransferModal({
       sourceBankId === targetBankId ||
       Number(transferAmount) <= 0
     ) {
-      setTransferError("Selecione contas diferentes e informe um valor válido.");
+      setTransferError(
+        "Selecione contas diferentes e informe um valor válido.",
+      );
       return;
     }
     try {
@@ -148,7 +150,7 @@ export default function FinancesTransferModal({
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Finalidade / Descrição da Operação
             </label>
-              <textarea
+            <textarea
               maxLength={30}
               value={transferDesc}
               onChange={(e) => setTransferDesc(e.target.value)}

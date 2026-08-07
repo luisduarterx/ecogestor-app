@@ -171,10 +171,7 @@ export function useUpdateRecord(recordID: number) {
   const queryClient = useQueryClient();
   return useMutation<unknown, ApiError, UpdateRecordInput>({
     mutationFn: async (input) => {
-      const { data } = await api.patch(
-        `/registros/${recordID}`,
-        input,
-      );
+      const { data } = await api.patch(`/registros/${recordID}`, input);
       return data;
     },
     onSuccess: async () => {
@@ -550,9 +547,8 @@ export function useFinancialAccounts() {
   return useQuery({
     queryKey: ["contas-financeiras"],
     queryFn: async () => {
-      const { data } = await api.get<FinancialAccountResponse[]>(
-        "/financeiro/contas",
-      );
+      const { data } =
+        await api.get<FinancialAccountResponse[]>("/financeiro/contas");
       return data.filter((conta) => conta.status);
     },
   });
@@ -856,7 +852,9 @@ export function useUser(userID?: number) {
     queryKey: ["usuario", userID],
     enabled: Boolean(userID),
     queryFn: async () => {
-      const { data } = await api.get<UserManagementDetail>(`/usuarios/${userID}`);
+      const { data } = await api.get<UserManagementDetail>(
+        `/usuarios/${userID}`,
+      );
       return data;
     },
   });
@@ -866,14 +864,16 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
     mutationFn: async (input) => (await api.post("/usuarios", input)).data,
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+    onSuccess: async () =>
+      queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
   });
 }
 
 export function useUpdateUser(userID?: number) {
   const queryClient = useQueryClient();
   return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
-    mutationFn: async (input) => (await api.patch(`/usuarios/${userID}`, input)).data,
+    mutationFn: async (input) =>
+      (await api.patch(`/usuarios/${userID}`, input)).data,
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
@@ -886,8 +886,10 @@ export function useUpdateUser(userID?: number) {
 export function useDeleteUser() {
   const queryClient = useQueryClient();
   return useMutation<{ id: number; deletedAt: string }, ApiError, number>({
-    mutationFn: async (userID) => (await api.delete(`/usuarios/${userID}`)).data,
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
+    mutationFn: async (userID) =>
+      (await api.delete(`/usuarios/${userID}`)).data,
+    onSuccess: async () =>
+      queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
   });
 }
 
@@ -902,7 +904,8 @@ export function useRole(roleID?: number) {
   return useQuery({
     queryKey: ["cargo", roleID],
     enabled: Boolean(roleID),
-    queryFn: async () => (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
+    queryFn: async () =>
+      (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
   });
 }
 
@@ -912,8 +915,9 @@ export function useRoleDetails(roleIDs: number[]) {
     enabled: roleIDs.length > 0,
     queryFn: async () =>
       Promise.all(
-        roleIDs.map(async (roleID) =>
-          (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
+        roleIDs.map(
+          async (roleID) =>
+            (await api.get<RoleResponse>(`/cargos/${roleID}`)).data,
         ),
       ),
   });
@@ -928,8 +932,9 @@ export function usePermissions() {
       } catch {
         const { data: roles } = await api.get<RolesResponse[]>("/cargos");
         const details = await Promise.all(
-          roles.map(async (role) =>
-            (await api.get<RoleResponse>(`/cargos/${role.id}`)).data,
+          roles.map(
+            async (role) =>
+              (await api.get<RoleResponse>(`/cargos/${role.id}`)).data,
           ),
         );
         const unique = new Map<number, PermissionResponse>();
@@ -950,14 +955,16 @@ export function useCreateRole() {
   const queryClient = useQueryClient();
   return useMutation<RoleResponse, ApiError, SaveRoleInput>({
     mutationFn: async (input) => (await api.post("/cargos", input)).data,
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+    onSuccess: async () =>
+      queryClient.invalidateQueries({ queryKey: ["cargos"] }),
   });
 }
 
 export function useUpdateRole(roleID?: number) {
   const queryClient = useQueryClient();
   return useMutation<RoleResponse, ApiError, SaveRoleInput>({
-    mutationFn: async (input) => (await api.patch(`/cargos/${roleID}`, input)).data,
+    mutationFn: async (input) =>
+      (await api.patch(`/cargos/${roleID}`, input)).data,
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cargos"] }),
@@ -971,6 +978,7 @@ export function useDeleteRole() {
   const queryClient = useQueryClient();
   return useMutation<{ deletado: number }, ApiError, number>({
     mutationFn: async (roleID) => (await api.delete(`/cargos/${roleID}`)).data,
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+    onSuccess: async () =>
+      queryClient.invalidateQueries({ queryKey: ["cargos"] }),
   });
 }

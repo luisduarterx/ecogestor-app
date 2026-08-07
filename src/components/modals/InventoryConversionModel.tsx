@@ -215,9 +215,7 @@ export default function InventoryConversionModal({
               disabled={createConversion.isPending || balancesQuery.isPending}
               className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
             >
-              {createConversion.isPending
-                ? "Processando..."
-                : "Processar Lote"}
+              {createConversion.isPending ? "Processando..." : "Processar Lote"}
             </button>
           </div>
         </form>

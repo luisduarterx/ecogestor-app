@@ -37,7 +37,9 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
       !date ||
       (status === "pago" && !bankAccountId)
     ) {
-      setError("Preencha descrição, valor, categoria, data e conta quando pago.");
+      setError(
+        "Preencha descrição, valor, categoria, data e conta quando pago.",
+      );
       return;
     }
     try {
@@ -83,7 +85,10 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
           </button>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="p-6 space-y-4"
+        >
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}
@@ -132,7 +137,9 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
               >
                 <option value="">Selecione...</option>
                 {(categoriesQuery.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>{item.nome}</option>
+                  <option key={item.id} value={item.id}>
+                    {item.nome}
+                  </option>
                 ))}
               </select>
             </div>
