@@ -74,7 +74,10 @@ export default function BankModal({ setIsOpen }: BankModalProps) {
           </button>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="p-6 space-y-4"
+        >
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}

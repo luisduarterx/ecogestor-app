@@ -51,9 +51,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
         categoria_id: Number(category),
         vencimento: date,
         baixar_agora: status === "recebido",
-        ...(status === "recebido"
-          ? { conta_id: Number(bankAccountId) }
-          : {}),
+        ...(status === "recebido" ? { conta_id: Number(bankAccountId) } : {}),
       });
       setIsOpen(false);
     } catch (requestError) {
@@ -87,7 +85,10 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
           </button>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="p-6 space-y-4"
+        >
           {error && (
             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
               {error}
@@ -134,7 +135,9 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
               >
                 <option value="">Selecione...</option>
                 {(categoriesQuery.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>{item.nome}</option>
+                  <option key={item.id} value={item.id}>
+                    {item.nome}
+                  </option>
                 ))}
               </select>
             </div>
@@ -198,8 +201,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
                 value={status}
                 onChange={(event) => {
                   const newStatus = event.target.value as
-                    | "recebido"
-                    | "pendente";
+                    "recebido" | "pendente";
                   setStatus(newStatus);
                   if (newStatus === "pendente") setBankAccountId("");
                 }}

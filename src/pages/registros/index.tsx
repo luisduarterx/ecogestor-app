@@ -1,5 +1,13 @@
 import { useDeferredValue, useState } from "react";
-import { Users, Search, Plus, Phone, Mail, DollarSign, Pencil } from "lucide-react";
+import {
+  Users,
+  Search,
+  Plus,
+  Phone,
+  Mail,
+  DollarSign,
+  Pencil,
+} from "lucide-react";
 import { LayoutBase } from "../../components/LayoutBase";
 import RecordModal from "../../components/modals/RecordModal";
 import EditRecordModal from "../../components/modals/EditRecordModal";
@@ -77,8 +85,12 @@ export function Registro() {
                   <span className="text-[10px] font-mono font-bold text-slate-500">
                     #{record.id}
                   </span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${record.tipo === "FISICA" ? "bg-sky-500/10 text-sky-400" : "bg-amber-500/10 text-amber-400"}`}>
-                    {record.tipo === "FISICA" ? "PESSOA FÍSICA" : "PESSOA JURÍDICA"}
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${record.tipo === "FISICA" ? "bg-sky-500/10 text-sky-400" : "bg-amber-500/10 text-amber-400"}`}
+                  >
+                    {record.tipo === "FISICA"
+                      ? "PESSOA FÍSICA"
+                      : "PESSOA JURÍDICA"}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-slate-100 group-hover:text-emerald-400 transition-colors mt-2">
@@ -100,19 +112,25 @@ export function Registro() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">{record.email || "Não informado"}</span>
+                    <span className="truncate">
+                      {record.email || "Não informado"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 pt-1 border-t border-slate-800/20 text-emerald-400 font-medium">
                     <DollarSign className="h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Tabela: <span className="text-slate-200 font-semibold">{record.tabela.nome}</span>
+                      Tabela:{" "}
+                      <span className="text-slate-200 font-semibold">
+                        {record.tabela.nome}
+                      </span>
                     </span>
                   </div>
                 </div>
               </div>
               <div className="mt-5 pt-3 border-t border-slate-800/50 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-mono text-slate-500">
-                  Cadastrado: {new Date(record.criado_em).toLocaleDateString("pt-BR")}
+                  Cadastrado:{" "}
+                  {new Date(record.criado_em).toLocaleDateString("pt-BR")}
                 </span>
                 <button
                   type="button"

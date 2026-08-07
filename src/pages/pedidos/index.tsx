@@ -108,9 +108,7 @@ export function Pedidos() {
       }
 
       const existingOrder = (openOrdersResult.data ?? [])
-        .filter(
-          (order) => order.userID === user.id && order.tipo === tipo,
-        )
+        .filter((order) => order.userID === user.id && order.tipo === tipo)
         .sort(
           (first, second) =>
             new Date(second.atualizado || second.criado_em).getTime() -
@@ -311,9 +309,7 @@ export function Pedidos() {
                 <select
                   value={typeFilter}
                   onChange={(e) =>
-                    setTypeFilter(
-                      e.target.value as "all" | "COMPRA" | "VENDA",
-                    )
+                    setTypeFilter(e.target.value as "all" | "COMPRA" | "VENDA")
                   }
                   className="w-full lg:w-40 bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 >
@@ -333,10 +329,7 @@ export function Pedidos() {
                   onChange={(e) =>
                     setStatusFilter(
                       e.target.value as
-                        | "all"
-                        | "ABERTO"
-                        | "FECHADO"
-                        | "CANCELADO",
+                        "all" | "ABERTO" | "FECHADO" | "CANCELADO",
                     )
                   }
                   className="w-full lg:w-40 bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
@@ -386,174 +379,174 @@ export function Pedidos() {
               <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs text-slate-400">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-950/15 text-slate-500 font-mono uppercase tracking-wider">
-                      <th className="py-3 px-4">Pedido ID</th>
-                      <th className="py-3 px-4">Fluxo</th>
-                      <th className="py-3 px-4">Data Emissão</th>
-                      <th className="py-3 px-4">Cliente/Fornecedor</th>
-                      <th className="py-3 px-4 text-right">Valor Líquido</th>
-                      <th className="py-3 px-4 text-center">
-                        Itens / Lançamentos
-                      </th>
-                      <th className="py-3 px-4 text-center">Situação</th>
-                      <th className="py-3 px-4 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-medium">
-                    {filteredOrders.map((order) => {
-                      const isSale = order.tipo === "VENDA";
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/15 text-slate-500 font-mono uppercase tracking-wider">
+                        <th className="py-3 px-4">Pedido ID</th>
+                        <th className="py-3 px-4">Fluxo</th>
+                        <th className="py-3 px-4">Data Emissão</th>
+                        <th className="py-3 px-4">Cliente/Fornecedor</th>
+                        <th className="py-3 px-4 text-right">Valor Líquido</th>
+                        <th className="py-3 px-4 text-center">
+                          Itens / Lançamentos
+                        </th>
+                        <th className="py-3 px-4 text-center">Situação</th>
+                        <th className="py-3 px-4 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                      {filteredOrders.map((order) => {
+                        const isSale = order.tipo === "VENDA";
 
-                      return (
-                        <tr
-                          key={order.id}
-                          className="hover:bg-slate-800/10 transition-colors"
-                        >
-                          {/* ID Badge */}
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-200">
-                            {order.id}
-                          </td>
+                        return (
+                          <tr
+                            key={order.id}
+                            className="hover:bg-slate-800/10 transition-colors"
+                          >
+                            {/* ID Badge */}
+                            <td className="py-3.5 px-4 font-mono font-bold text-slate-200">
+                              {order.id}
+                            </td>
 
-                          {/* Flow Tag */}
-                          <td className="py-3.5 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${
-                                isSale
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                              }`}
-                            >
-                              {isSale ? (
-                                <>
-                                  <ArrowUpRight className="h-3 w-3 text-emerald-400" />
-                                  Venda
-                                </>
-                              ) : (
-                                <>
-                                  <ArrowDownRight className="h-3 w-3 text-indigo-400" />
-                                  Compra
-                                </>
-                              )}
-                            </span>
-                          </td>
-
-                          {/* Date */}
-                          <td className="py-3.5 px-4 text-slate-400 font-mono">
-                            {formatarData(order.criado_em)}
-                          </td>
-
-                          {/* Customer/Supplier */}
-                          <td className="py-3.5 px-4 text-slate-200 font-semibold truncate max-w-[160px]">
-                            {order.registro?.apelido ||
-                              order.registro?.nome_razao ||
-                              "Não informado"}
-                          </td>
-
-                          {/* Value */}
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-100">
-                            R${" "}
-                            {order.valor_total.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-
-                          {/* Counts returned by the API */}
-                          <td className="py-3.5 px-4 text-center text-slate-400 font-medium text-[11px]">
-                            {order._count.items} itens /{" "}
-                            {order._count.lancamentos} lançamentos
-                          </td>
-
-                          {/* Status Badge */}
-                          <td className="py-3.5 px-4 text-center">
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-                                order.status === "FECHADO"
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : order.status === "ABERTO"
-                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                              }`}
-                            >
+                            {/* Flow Tag */}
+                            <td className="py-3.5 px-4">
                               <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  order.status === "FECHADO"
-                                    ? "bg-emerald-400"
-                                    : order.status === "ABERTO"
-                                      ? "bg-amber-400"
-                                      : "bg-rose-400"
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${
+                                  isSale
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                                 }`}
-                              ></span>
-                              {order.status === "FECHADO"
-                                ? "Fechado"
-                                : order.status === "ABERTO"
-                                  ? "Aberto"
-                                  : "Cancelado"}
-                            </span>
-                          </td>
-
-                          {/* Actions Button List */}
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* View & print 80x40 receipt button */}
-                              <button
-                                type="button"
-                                onClick={() => setPrintOrderId(order.id)}
-                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded-lg cursor-pointer transition-colors"
-                                title="Visualizar e Emitir Cupom Térmico 80x40"
                               >
-                                <Printer className="h-4 w-4" />
-                              </button>
+                                {isSale ? (
+                                  <>
+                                    <ArrowUpRight className="h-3 w-3 text-emerald-400" />
+                                    Venda
+                                  </>
+                                ) : (
+                                  <>
+                                    <ArrowDownRight className="h-3 w-3 text-indigo-400" />
+                                    Compra
+                                  </>
+                                )}
+                              </span>
+                            </td>
 
-                              {/* Open drafts directly; closed orders require reopening. */}
-                              {order.status !== "CANCELADO" && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditOrder(order)}
-                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 rounded-lg cursor-pointer transition-colors"
-                                  title={
+                            {/* Date */}
+                            <td className="py-3.5 px-4 text-slate-400 font-mono">
+                              {formatarData(order.criado_em)}
+                            </td>
+
+                            {/* Customer/Supplier */}
+                            <td className="py-3.5 px-4 text-slate-200 font-semibold truncate max-w-[160px]">
+                              {order.registro?.apelido ||
+                                order.registro?.nome_razao ||
+                                "Não informado"}
+                            </td>
+
+                            {/* Value */}
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-100">
+                              R${" "}
+                              {order.valor_total.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+
+                            {/* Counts returned by the API */}
+                            <td className="py-3.5 px-4 text-center text-slate-400 font-medium text-[11px]">
+                              {order._count.items} itens /{" "}
+                              {order._count.lancamentos} lançamentos
+                            </td>
+
+                            {/* Status Badge */}
+                            <td className="py-3.5 px-4 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+                                  order.status === "FECHADO"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : order.status === "ABERTO"
+                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                }`}
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${
                                     order.status === "FECHADO"
-                                      ? "Reabrir pedido para editar"
-                                      : "Editar pedido"
-                                  }
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                              )}
+                                      ? "bg-emerald-400"
+                                      : order.status === "ABERTO"
+                                        ? "bg-amber-400"
+                                        : "bg-rose-400"
+                                  }`}
+                                ></span>
+                                {order.status === "FECHADO"
+                                  ? "Fechado"
+                                  : order.status === "ABERTO"
+                                    ? "Aberto"
+                                    : "Cancelado"}
+                              </span>
+                            </td>
 
-                              {order.status === "ABERTO" ? (
+                            {/* Actions Button List */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* View & print 80x40 receipt button */}
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setConfirmation({
-                                      action: "cancel",
-                                      order,
-                                    })
-                                  }
-                                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 rounded-lg cursor-pointer transition-all"
-                                  title="Cancelar pedido"
+                                  onClick={() => setPrintOrderId(order.id)}
+                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded-lg cursor-pointer transition-colors"
+                                  title="Visualizar e Emitir Cupom Térmico 80x40"
                                 >
-                                  <Ban className="h-4 w-4" />
+                                  <Printer className="h-4 w-4" />
                                 </button>
-                              ) : null}
-                            </div>
+
+                                {/* Open drafts directly; closed orders require reopening. */}
+                                {order.status !== "CANCELADO" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditOrder(order)}
+                                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 rounded-lg cursor-pointer transition-colors"
+                                    title={
+                                      order.status === "FECHADO"
+                                        ? "Reabrir pedido para editar"
+                                        : "Editar pedido"
+                                    }
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                )}
+
+                                {order.status === "ABERTO" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setConfirmation({
+                                        action: "cancel",
+                                        order,
+                                      })
+                                    }
+                                    className="p-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-slate-950 rounded-lg cursor-pointer transition-all"
+                                    title="Cancelar pedido"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </button>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {filteredOrders.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={8}
+                            className="p-12 text-center text-slate-500"
+                          >
+                            Nenhum pedido de compra ou venda corresponde aos
+                            filtros aplicados.
                           </td>
                         </tr>
-                      );
-                    })}
-
-                    {filteredOrders.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="p-12 text-center text-slate-500"
-                        >
-                          Nenhum pedido de compra ou venda corresponde aos
-                          filtros aplicados.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
+                      )}
+                    </tbody>
                   </table>
                 </div>
               </div>
