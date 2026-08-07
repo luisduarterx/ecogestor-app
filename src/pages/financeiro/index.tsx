@@ -226,7 +226,7 @@ export function Financeiro() {
 
   // 3. Desfazer Operação Modal State
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
-  const [undoItem, setUndoItem] = useState<FinancialOperationLog | null>(null);
+  const [undoItem] = useState<FinancialOperationLog | null>(null);
   const [reverseEntryItem, setReverseEntryItem] =
     useState<ReversibleFinancialEntry | null>(null);
   const [openSearchTerm, setOpenSearchTerm] = useState("");

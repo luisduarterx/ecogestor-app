@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { LayoutBase } from "../../components/LayoutBase";
 import PriceTablePrintModal from "../../components/modals/PriceTablePrintModal";
@@ -37,13 +37,12 @@ interface LegacyPriceTableItem {
   materialName: string;
 }
 
+interface TableDraft {
+  name?: string;
+  prices?: Record<string, string>;
+}
+
 export function Precos() {
-  const handlePriceOverrideChange = (matName: string, value: string) => {
-    setTablePricesEdit((prev) => ({
-      ...prev,
-      [matName]: value,
-    }));
-  };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedItemId] = useState("");
   const [editBuyPrice, setEditBuyPrice] = useState("");
@@ -85,13 +84,10 @@ export function Precos() {
   const [categoryFormSuccess, setCategoryFormSuccess] = useState("");
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [newTableName, setNewTableName] = useState("");
-  const [editingTableName, setEditingTableName] = useState("");
   const [tableFormError, setTableFormError] = useState("");
   const [deleteTableConfirmationOpen, setDeleteTableConfirmationOpen] =
     useState(false);
-  const [tablePricesEdit, setTablePricesEdit] = useState<
-    Record<string, string>
-  >({});
+  const [tableDrafts, setTableDrafts] = useState<Record<number, TableDraft>>({});
   const [tableEditMsg, setTableEditMsg] = useState("");
   const [catalogView, setCatalogView] = useState<"materials" | "categories">(
     "materials",
@@ -111,29 +107,65 @@ export function Precos() {
   const selectedTable = managedTables.find(
     (table) => table.id === selectedTableId,
   );
+  const initialTablePrices = useMemo<Record<string, string>>(() => {
+    if (!selectedTableQuery.data || !catalogMaterialsQuery.data) return {};
 
-  useEffect(() => {
-    if (!selectedTableQuery.data || !catalogMaterialsQuery.data) return;
-
-    setEditingTableName(selectedTableQuery.data.nome);
-    setTablePricesEdit(
-      Object.fromEntries(
-        catalogMaterialsQuery.data.map((material) => {
-          const customPrice = selectedTableQuery.data?.materiais.find(
-            (price) => price.materialID === material.id,
-          )?.preco_compra;
-          const basePrice = defaultTableQuery.data?.materiais.find(
-            (price) => price.materialID === material.id,
-          )?.preco_compra;
-          return [material.id, String(customPrice ?? basePrice ?? "")];
-        }),
-      ),
+    return Object.fromEntries(
+      catalogMaterialsQuery.data.map((material) => {
+        const customPrice = selectedTableQuery.data.materiais.find(
+          (price) => price.materialID === material.id,
+        )?.preco_compra;
+        const basePrice = defaultTableQuery.data?.materiais.find(
+          (price) => price.materialID === material.id,
+        )?.preco_compra;
+        return [String(material.id), String(customPrice ?? basePrice ?? "")];
+      }),
     );
   }, [
     catalogMaterialsQuery.data,
     defaultTableQuery.data,
     selectedTableQuery.data,
   ]);
+  const selectedTableDraft =
+    selectedTableId === null ? undefined : tableDrafts[selectedTableId];
+  const editingTableName =
+    selectedTableDraft?.name ?? selectedTableQuery.data?.nome ?? "";
+  const tablePricesEdit = selectedTableDraft?.prices ?? initialTablePrices;
+
+  function handleSelectTable(tableID: number) {
+    setSelectedTableId(tableID);
+    setTableDrafts({});
+    setTableFormError("");
+    setTableEditMsg("");
+  }
+
+  function handleTableNameChange(name: string) {
+    if (selectedTableId === null) return;
+
+    setTableDrafts((drafts) => ({
+      ...drafts,
+      [selectedTableId]: {
+        ...drafts[selectedTableId],
+        name,
+      },
+    }));
+  }
+
+  function handlePriceOverrideChange(materialID: string, value: string) {
+    if (selectedTableId === null) return;
+
+    setTableDrafts((drafts) => ({
+      ...drafts,
+      [selectedTableId]: {
+        ...drafts[selectedTableId],
+        prices: {
+          ...initialTablePrices,
+          ...drafts[selectedTableId]?.prices,
+          [materialID]: value,
+        },
+      },
+    }));
+  }
 
   const defaultTablePrices = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
@@ -285,7 +317,7 @@ export function Precos() {
         materiais: initialPrices,
       });
       setNewTableName("");
-      setSelectedTableId(table.id);
+      handleSelectTable(table.id);
       setTableEditMsg(`Tabela ${table.nome} criada com sucesso.`);
     } catch (error) {
       setTableFormError(
@@ -339,8 +371,7 @@ export function Precos() {
     try {
       await deleteTable.mutateAsync(selectedTableId);
       setSelectedTableId(null);
-      setEditingTableName("");
-      setTablePricesEdit({});
+      setTableDrafts({});
       setDeleteTableConfirmationOpen(false);
     } catch (error) {
       setTableFormError(
@@ -977,7 +1008,7 @@ export function Precos() {
                   {managedTables.map((tbl) => (
                     <button
                       key={tbl.id}
-                      onClick={() => setSelectedTableId(tbl.id)}
+                      onClick={() => handleSelectTable(tbl.id)}
                       className={`w-full text-left p-3.5 rounded-xl border transition-all text-xs flex flex-col gap-1 cursor-pointer ${
                         selectedTableId === tbl.id
                           ? "bg-slate-950 border-emerald-500/50 ring-1 ring-emerald-500/10"
@@ -1017,7 +1048,7 @@ export function Precos() {
                         <input
                           value={editingTableName}
                           onChange={(event) =>
-                            setEditingTableName(event.target.value)
+                            handleTableNameChange(event.target.value)
                           }
                           className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-bold text-slate-100"
                         />
