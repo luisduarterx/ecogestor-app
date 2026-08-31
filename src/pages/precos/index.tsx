@@ -2,7 +2,6 @@ import {
   AlertCircle,
   ArrowUpRight,
   Check,
-  DollarSign,
   Edit3,
   FolderPlus,
   Package,
@@ -16,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { motion } from "motion/react";
+
 import { LayoutBase } from "../../components/LayoutBase";
 import PriceTablePrintModal from "../../components/modals/PriceTablePrintModal";
 import {
@@ -30,12 +29,9 @@ import {
   useTables,
   useUpdateTable,
 } from "../../utils/queries";
-import type { ApiError } from "../../utils/types";
-
-interface LegacyPriceTableItem {
-  id: string;
-  materialName: string;
-}
+import type { ApiError, MaterialCategoryResponse } from "../../utils/types";
+import EditMaterialModal from "../../components/modals/EditMaterialModal";
+import EditMaterialCategoryModal from "../../components/modals/EditMaterialCategoryModal";
 
 interface TableDraft {
   name?: string;
@@ -44,12 +40,7 @@ interface TableDraft {
 
 export function Precos() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedItemId] = useState("");
-  const [editBuyPrice, setEditBuyPrice] = useState("");
-  const [editSellPrice, setEditSellPrice] = useState("");
-  const [editMinQty, setEditMinQty] = useState("");
-  const [editError] = useState("");
-  const [priceTable] = useState<LegacyPriceTableItem[]>([]);
+
   const [activeSubTab, setActiveSubTab] = useState<
     "tariffs" | "materials" | "customTables"
   >("tariffs");
@@ -61,17 +52,21 @@ export function Precos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  const handleSavePrices = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [editMaterialID, setEditMaterialID] = useState<number | undefined>(
+    undefined,
+  );
+  function handleEditMaterial(materialID: number) {
+    setEditMaterialID(materialID);
+    setIsEditModalOpen(true);
+  }
 
-    setIsEditModalOpen(false);
-  };
   const [newMatName, setNewMatName] = useState("");
   const [newMatCategory, setNewMatCategory] = useState("");
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState("");
   const [newMatMinStock, setNewMatMinStock] = useState("500");
-  const [newMatUnit, setNewMatUnit] = useState<"kg" | "ton">("kg");
+  const [newMatMaxStock, setNewMatMaxStock] = useState("1000");
+  const [newMatUnit, setNewMatUnit] = useState<"KG" | "LT" | "UN">("KG");
   const [newMatColor, setNewMatColor] = useState("#10b981"); // Emerald 500 default
   const [newMatBuyPrice, setNewMatBuyPrice] = useState("");
   const [newMatSellPrice, setNewMatSellPrice] = useState("");
@@ -82,6 +77,8 @@ export function Precos() {
   const [newCategoryNameInput, setNewCategoryNameInput] = useState("");
   const [categoryFormError, setCategoryFormError] = useState("");
   const [categoryFormSuccess, setCategoryFormSuccess] = useState("");
+  const [editingCategory, setEditingCategory] =
+    useState<MaterialCategoryResponse | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [newTableName, setNewTableName] = useState("");
   const [tableFormError, setTableFormError] = useState("");
@@ -98,6 +95,7 @@ export function Precos() {
   const catalogMaterialsQuery = useMaterials();
   const createCategory = useCreateMaterialCategory();
   const createMaterial = useCreateMaterial();
+
   const tablesQuery = useTables();
   const defaultTable = tablesQuery.data?.find((table) => table.padrao);
   const defaultTableQuery = useTable(defaultTable?.id);
@@ -255,11 +253,15 @@ export function Precos() {
         newMatName.trim().length < 3 ||
         Number(newMatBuyPrice) < 0 ||
         Number(newMatSellPrice) < 0 ||
+        Number(newMatMinStock) < 0 ||
+        Number(newMatMaxStock) < Number(newMatMinStock) ||
         newMatBuyPrice === "" ||
-        newMatSellPrice === ""
+        newMatSellPrice === "" ||
+        newMatMinStock === "" ||
+        newMatMaxStock === ""
       ) {
         setMaterialFormError(
-          "Preencha nome, categoria, preço de compra e preço de venda.",
+          "Preencha os dados do material e informe um estoque máximo maior ou igual ao mínimo.",
         );
         return;
       }
@@ -269,11 +271,17 @@ export function Precos() {
         nome: newMatName.trim(),
         preco_compra: Number(newMatBuyPrice),
         preco_venda: Number(newMatSellPrice),
+        est_min: Number(newMatMinStock),
+        est_max: Number(newMatMaxStock),
+        unidade: newMatUnit,
       });
 
       setNewMatName("");
       setNewMatBuyPrice("");
       setNewMatSellPrice("");
+      setNewMatMinStock("500");
+      setNewMatMaxStock("1000");
+      setNewMatUnit("KG");
       setCustomCategoryName("");
       setIsNewCategory(false);
       setMaterialFormSuccess(`Material ${material.nome} criado com sucesso.`);
@@ -508,7 +516,6 @@ export function Precos() {
                       <th className="py-3 px-4 text-center">Margem Lucro</th>
                       <th className="py-3 px-4 text-right">Qtd Lote Mín</th>
                       <th className="py-3 px-4 text-center">Última Revisão</th>
-                      <th className="py-3 px-4 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -553,15 +560,6 @@ export function Precos() {
                           </td>
                           <td className="py-3.5 px-4 text-center font-mono text-slate-500">
                             {item.lastUpdated}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <button
-                              onClick={() => () => {}}
-                              className="p-1.5 hover:bg-emerald-400/10 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors cursor-pointer"
-                              title="Revisar Tarifa"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </button>
                           </td>
                         </tr>
                       );
@@ -713,8 +711,8 @@ export function Precos() {
                     </div>
                   </div>
 
-                  {/* Unit & Min stock */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Unit and stock limits */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                         Unidade de Medida
@@ -722,12 +720,13 @@ export function Precos() {
                       <select
                         value={newMatUnit}
                         onChange={(e) =>
-                          setNewMatUnit(e.target.value as "kg" | "ton")
+                          setNewMatUnit(e.target.value as "KG" | "LT" | "UN")
                         }
                         className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                       >
-                        <option value="kg">Quilos (kg)</option>
-                        <option value="ton">Tonelada (ton)</option>
+                        <option value="KG">Quilos (kg)</option>
+                        <option value="LT">Litros (L)</option>
+                        <option value="UN">Unidades (un)</option>
                       </select>
                     </div>
                     <div>
@@ -736,9 +735,25 @@ export function Precos() {
                       </label>
                       <input
                         type="number"
+                        min="0"
+                        step="0.01"
                         value={newMatMinStock}
                         onChange={(e) => setNewMatMinStock(e.target.value)}
                         placeholder="Ex: 500"
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Estoque Máximo
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newMatMaxStock}
+                        onChange={(e) => setNewMatMaxStock(e.target.value)}
+                        placeholder="Ex: 1000"
                         className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
                       />
                     </div>
@@ -881,6 +896,7 @@ export function Precos() {
                         <th className="py-3 px-4 text-right">Preço Compra</th>
                         <th className="py-3 px-4 text-right">Preço Venda</th>
                         <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-center">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -907,9 +923,26 @@ export function Precos() {
                             R$ {material.preco_venda.toFixed(2)}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
-                              ATIVO
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${
+                                material.status
+                                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                  : "border-slate-600/30 bg-slate-700/20 text-slate-400"
+                              }`}
+                            >
+                              {material.status ? "ATIVO" : "INATIVO"}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleEditMaterial(material.id)}
+                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+                              title={`Atualizar ${material.nome}`}
+                              aria-label={`Atualizar ${material.nome}`}
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -922,6 +955,7 @@ export function Precos() {
                         <th className="py-3 px-4">Código</th>
                         <th className="py-3 px-4">Nome da Categoria</th>
                         <th className="py-3 px-4 text-right">Materiais</th>
+                        <th className="py-3 px-4 text-center">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -943,6 +977,17 @@ export function Precos() {
                                   material.categoria.id === category.id,
                               ).length
                             }
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setEditingCategory(category)}
+                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+                              title={`Atualizar ${category.nome}`}
+                              aria-label={`Atualizar categoria ${category.nome}`}
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1273,119 +1318,20 @@ export function Precos() {
           </div>
         )}
 
-        {/* EDIT STANDARD TARIFF MODAL (Maintained from original Price Table tab) */}
-        {isEditModalOpen && (
-          <div
-            id="modal-preco"
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-md overflow-hidden shadow-2xl"
-            >
-              <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/20 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
-                  <h3 className="font-bold text-slate-100">
-                    Atualizar Preços Praticados
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+        {/* MATERIAL EDIT MODAL */}
+        {isEditModalOpen && editMaterialID !== undefined && (
+          <EditMaterialModal
+            materialID={editMaterialID}
+            setIsOpen={setIsEditModalOpen}
+          />
+        )}
 
-              <form onSubmit={handleSavePrices} className="p-6 space-y-4">
-                <h4 className="text-sm font-bold text-slate-200">
-                  Material:{" "}
-                  <span className="text-emerald-400">
-                    {
-                      priceTable.find((p) => p.id === selectedItemId)
-                        ?.materialName
-                    }
-                  </span>
-                </h4>
-
-                {editError && (
-                  <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-xs text-rose-400">
-                    {editError}
-                  </div>
-                )}
-
-                {/* Buy Price */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Preço Máximo de Compra (R$ / kg)
-                  </label>
-                  <div className="relative rounded-md shadow-sm">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-xs">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editBuyPrice}
-                      onChange={(e) => setEditBuyPrice(e.target.value)}
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Sell Price */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Preço Alvo de Venda Industrial (R$ / kg)
-                  </label>
-                  <div className="relative rounded-md shadow-sm">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-xs">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editSellPrice}
-                      onChange={(e) => setEditSellPrice(e.target.value)}
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Min Qty */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Lote Mínimo de Faturamento (kg)
-                  </label>
-                  <input
-                    type="number"
-                    value={editMinQty}
-                    onChange={(e) => setEditMinQty(e.target.value)}
-                    className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                  />
-                </div>
-
-                {/* Footer */}
-                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs uppercase cursor-pointer"
-                  >
-                    Confirmar Ajuste
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+        {editingCategory && (
+          <EditMaterialCategoryModal
+            key={editingCategory.id}
+            category={editingCategory}
+            onClose={() => setEditingCategory(null)}
+          />
         )}
 
         {/* EXPORT AND PRINT PRICE TABLE MODAL */}
