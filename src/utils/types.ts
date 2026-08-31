@@ -279,6 +279,24 @@ export type MaterialResponse = {
   nome: string;
   preco_venda: number;
   preco_compra: number;
+  est_min: number | null;
+  est_max: number | null;
+  unidade: "KG" | "LT" | "UN";
+  criado_em: string;
+  editado_em: string;
+  status: boolean;
+  categoria: {
+    id: number;
+    nome: string;
+  };
+};
+export type UpdatedMaterialResponse = {
+  id: number;
+  nome: string;
+  preco_venda: number;
+  est_min: number | null;
+  est_max: number | null;
+  unidade: "KG" | "LT" | "UN";
   criado_em: string;
   editado_em: string;
   status: boolean;
@@ -291,11 +309,21 @@ export type MaterialCategoryResponse = {
   id: number;
   nome: string;
 };
+export type UpdateMaterialCategoryInput = {
+  id: number;
+  nome: string;
+};
 export type CreateMaterialInput = {
   catID: number;
   nome: string;
   preco_compra: number;
   preco_venda: number;
+  est_min: number;
+  est_max: number;
+  unidade: "KG" | "LT" | "UN";
+};
+export type UpdateMaterialInput = Partial<CreateMaterialInput> & {
+  status?: boolean;
 };
 export type RecordResponse = {
   id: number;

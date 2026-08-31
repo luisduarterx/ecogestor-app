@@ -26,6 +26,8 @@ import {
   type LoginReponse,
   type MaterialResponse,
   type MaterialCategoryResponse,
+  type UpdateMaterialCategoryInput,
+  type UpdateMaterialInput,
   type OrderItemResponse,
   type OrderResponse,
   type OrdersFilters,
@@ -47,6 +49,7 @@ import {
   type SaveUserInput,
   type UserManagementDetail,
   type UserManagementResponse,
+  type UpdatedMaterialResponse,
 } from "./types";
 import { api } from "./api";
 
@@ -187,9 +190,20 @@ export function useMaterials() {
   return useQuery({
     queryKey: ["materiais", "selecao-pedido"],
     queryFn: async () => {
-      const { data } = await api.get<MaterialResponse[]>("/materiais", {
+      const { data } = await api.get<MaterialResponse[]>(`/materiais`, {
         params: { order: "nome" },
       });
+      return data;
+    },
+  });
+}
+export function useMaterial(materialID: number) {
+  return useQuery({
+    queryKey: ["materiais", materialID],
+    queryFn: async () => {
+      const { data } = await api.get<MaterialResponse>(
+        `/materiais/${materialID}`,
+      );
       return data;
     },
   });
@@ -226,6 +240,33 @@ export function useCreateMaterialCategory() {
   });
 }
 
+export function useUpdateMaterialCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    MaterialCategoryResponse,
+    ApiError,
+    UpdateMaterialCategoryInput
+  >({
+    mutationFn: async ({ id, nome }) => {
+      const { data } = await api.patch<MaterialCategoryResponse>(
+        `/materiais/categorias/${id}`,
+        { nome },
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["materiais", "categorias"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["materiais"] }),
+        queryClient.invalidateQueries({ queryKey: ["estoque"] }),
+      ]);
+    },
+  });
+}
+
 export function useCreateMaterial() {
   const queryClient = useQueryClient();
 
@@ -239,6 +280,40 @@ export function useCreateMaterial() {
         queryClient.invalidateQueries({ queryKey: ["materiais"] }),
         queryClient.invalidateQueries({ queryKey: ["estoque", "saldos"] }),
       ]);
+    },
+  });
+}
+
+export function useUpdateMaterial(materialID?: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation<UpdatedMaterialResponse, ApiError, UpdateMaterialInput>({
+    mutationFn: async (input) => {
+      if (materialID === undefined) {
+        throw {
+          nome: "MaterialNotSelected",
+          mensagem: "Selecione um material para atualizar.",
+          statusCode: 400,
+          action: "Selecione um material",
+        } satisfies ApiError;
+      }
+      const { data } = await api.patch<UpdatedMaterialResponse>(
+        `/materiais/${materialID}`,
+
+        input,
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      console.log("ok");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["materiais"] }),
+        queryClient.invalidateQueries({ queryKey: ["estoque", "saldos"] }),
+        queryClient.invalidateQueries({ queryKey: ["tabelas"] }),
+      ]);
+    },
+    onError: async (err) => {
+      console.log(err);
     },
   });
 }
@@ -680,7 +755,23 @@ export function useCloseCash() {
       );
       return data;
     },
-    onSuccess: () => invalidateCash(queryClient),
+    onSuccess: async () => {
+      // A consulta sem caixa aberto responde com erro e o React Query preserva
+      // o último dado válido. Limpe a sessão encerrada antes de atualizar as
+      // demais informações para a tela refletir o fechamento imediatamente.
+      queryClient.setQueryData<ReconciliationCashResponse | null>(
+        ["financeiro", "caixa", "consulta"],
+        null,
+      );
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["financeiro", "caixas"] }),
+        queryClient.invalidateQueries({ queryKey: ["contas-financeiras"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["financeiro", "movimentacoes"],
+        }),
+      ]);
+    },
   });
 }
 
@@ -694,6 +785,23 @@ export function useCreateFinancialTransfer() {
     },
     onSuccess: () => invalidateCash(queryClient),
   });
+}
+
+export function useReverseFinancialTransfer() {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, ApiError, { transferID: number; reason: string }>(
+    {
+      mutationFn: async ({ transferID, reason }) => {
+        const { data } = await api.post(
+          `/financeiro/transferencia/estorno/${transferID}`,
+          { motivo: reason },
+        );
+        return data;
+      },
+      onSuccess: () => invalidateCash(queryClient),
+    },
+  );
 }
 
 export function useCreateFinancialEntry() {
