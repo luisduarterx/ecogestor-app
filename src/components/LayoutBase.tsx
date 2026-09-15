@@ -1,4 +1,4 @@
-import { Bell, Clock, Menu } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
@@ -14,6 +14,12 @@ export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user, logout } = useLoggedUser();
   const navigate = useNavigate();
+  const userInitials = (user?.nome.trim() || "Operador")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((name) => name.charAt(0))
+    .join("")
+    .toLocaleUpperCase("pt-BR");
 
   function handleLogout() {
     logout();
@@ -45,13 +51,10 @@ export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
               <Menu className="h-5.5 w-5.5" />
             </button>
             <div>
-              <h2 className="text-sm font-bold text-slate-100 leading-tight tracking-tight uppercase font-mono">
+              <h2 className="text-md font-bold text-slate-100 pt-2 leading-tight tracking-tight uppercase font-mono">
                 {pageTitle}
               </h2>
-              <p className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
-                <Clock className="h-3 w-3 text-emerald-400" />
-                <span>Base Operacional: Usina Leste</span>
-              </p>
+              <p className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5"></p>
             </div>
           </div>
 
@@ -68,12 +71,9 @@ export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
                 <p className="text-xs font-bold text-slate-200">
                   {user?.nome ?? "Operador"}
                 </p>
-                <span className="text-[9px] uppercase tracking-wider text-emerald-400 font-mono font-semibold">
-                  Admin Geral
-                </span>
               </div>
               <div className="h-8.5 w-8.5 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-semibold font-mono text-sm shadow-sm select-none uppercase">
-                AD
+                {userInitials}
               </div>
             </div>
           </div>

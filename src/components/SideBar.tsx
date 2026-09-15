@@ -4,7 +4,6 @@ import {
   DollarSign,
   Users,
   LogOut,
-  Leaf,
   ShieldCheck,
   Layers,
   X,
@@ -99,21 +98,12 @@ export default function Sidebar({
         {/* Header Branding */}
         <div>
           <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/20">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400 border border-emerald-500/20">
-                <Leaf className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="font-extrabold text-slate-100 tracking-tight flex items-center">
-                  Eco
-                  <span className="text-emerald-400 font-medium ml-1">
-                    Gestor
-                  </span>
-                </span>
-                <p className="text-[10px] font-mono tracking-wider text-slate-500 uppercase">
-                  Suite de Reciclagem
-                </p>
-              </div>
+            <div className="min-w-0">
+              <img
+                src="/LOGOS_BRANCA.png"
+                alt="EcoGestor"
+                className="h-auto w-36 object-contain object-left"
+              />
             </div>
             {/* Close button on Mobile */}
             <button

@@ -18,6 +18,7 @@ import { ProviderQueryClient } from "./context/QueryClient.tsx";
 import { ProtectedRoute } from "./pages/ProtectedRoutes.tsx";
 import { Usuarios } from "./pages/usuarios/index.tsx";
 import { GuestRoute } from "./pages/GuestRoute.tsx";
+import { NotFound } from "./pages/not-found/index.tsx";
 
 const router = createBrowserRouter([
   {
@@ -50,6 +51,10 @@ const router = createBrowserRouter([
       {
         path: "/registros",
         element: <Registro />,
+      },
+      {
+        path: "*",
+        element: <NotFound />,
       },
     ],
   },

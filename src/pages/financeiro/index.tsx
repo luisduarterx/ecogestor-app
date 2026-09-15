@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
+import { exportReport } from "../../utils/reportExport";
 import {
   DollarSign,
   Search,
@@ -356,9 +357,54 @@ export function Financeiro() {
     0,
   );
   const totalPendingCount = pendingEntries.length;
+  const [exportFeedback, setExportFeedback] = useState("");
+  function handleExport(format: "csv" | "pdf") {
+    if (financialMovementsQuery.isFetching) {
+      setExportFeedback("Aguarde o carregamento das movimentações.");
+      return;
+    }
+    if (financialMovementsQuery.isError) {
+      setExportFeedback(
+        "Não foi possível carregar as movimentações. Tente novamente antes de exportar.",
+      );
+      return;
+    }
+    setExportFeedback(
+      exportReport(
+        {
+          title: "Movimentações financeiras",
+          filters: `Busca: ${searchTerm || "Todas"}; fluxo: ${flowFilter === "all" ? "Todos" : flowFilter === "income" ? "Entradas" : "Saídas"}`,
+          columns: [
+            "Código",
+            "Data",
+            "Direção",
+            "Descrição",
+            "Conta",
+            "Origem",
+            "Valor (R$)",
+          ],
+          rows: filteredLog.map((log) => [
+            log.id,
+            log.date,
+            log.type === "income" ? "Entrada" : "Saída",
+            log.description,
+            log.account,
+            log.category,
+            log.value,
+          ]),
+        },
+        format,
+      ),
+    );
+  }
 
   return (
     <LayoutBase activeTab="financeiro" pageTitle="FINANCEIRO">
+      {exportFeedback && (
+        <p role="status" className="mb-4 text-sm text-slate-200">
+          {exportFeedback}
+        </p>
+      )}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 mb-4 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shadow-xs">
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
           <button
@@ -959,7 +1005,7 @@ export function Financeiro() {
                     {/* Export buttons */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {}}
+                        onClick={() => handleExport("csv")}
                         className="flex items-center justify-center gap-1.5 bg-slate-950/40 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-emerald-500/25 select-none"
                         title="Exportar fluxo de caixa para CSV"
                       >
@@ -967,7 +1013,7 @@ export function Financeiro() {
                         Exportar CSV
                       </button>
                       <button
-                        onClick={() => {}}
+                        onClick={() => handleExport("pdf")}
                         className="flex items-center justify-center gap-1.5 bg-slate-950/40 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-rose-500/25 select-none"
                         title="Gerar PDF do fluxo de caixa"
                       >
