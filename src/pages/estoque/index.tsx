@@ -23,6 +23,8 @@ import {
 } from "../../utils/queries";
 import type { ApiError } from "../../utils/types";
 
+import { exportReport, type Report } from "../../utils/reportExport";
+
 const DEFAULT_MATERIAL_COLOR = "#34d399";
 
 function formatarData(data: string) {
@@ -77,6 +79,7 @@ export function Estoque() {
     return [...categoriesByID].map(([id, nome]) => ({ id, nome }));
   }, [balancesQuery.data, movementsQuery.data]);
 
+  const [exportFeedback, setExportFeedback] = useState("");
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
   const filteredMaterials = useMemo(
     () =>
@@ -200,6 +203,96 @@ export function Estoque() {
     normalizedSearch,
   ]);
 
+  function handleExport(format: "csv" | "pdf") {
+    const query =
+      activeSubTab === "levels"
+        ? balancesQuery
+        : activeSubTab === "conversions"
+          ? conversionsQuery
+          : movementsQuery;
+    if (query.isFetching || balancesQuery.isFetching) {
+      setExportFeedback("Aguarde o carregamento dos dados.");
+      return;
+    }
+    if (query.isError || balancesQuery.isError) {
+      setExportFeedback(
+        "Não foi possível carregar os dados. Tente novamente antes de exportar.",
+      );
+      return;
+    }
+    const filters = `Busca: ${searchTerm || "Todas"}; categoria (ID): ${categoryFilter}; fluxo: ${transactionTypeFilter}; status de conversão: ${conversionStatusFilter || "Todos"}`;
+    const report: Report =
+      activeSubTab === "levels"
+        ? {
+            title: "Saldos de estoque",
+            filters,
+            columns: [
+              "Código",
+              "Material",
+              "Categoria",
+              "Saldo (kg)",
+              "Custo médio (R$)",
+              "Valor de estoque (R$)",
+            ],
+            rows: filteredMaterials.map((m) => [
+              m.id,
+              m.name,
+              m.category,
+              m.stock,
+              m.averageCost ?? 0,
+              m.totalValue ?? 0,
+            ]),
+          }
+        : activeSubTab === "conversions"
+          ? {
+              title: "Conversões de estoque",
+              filters,
+              columns: [
+                "Código",
+                "Data",
+                "Origem",
+                "Quantidade origem (kg)",
+                "Destino",
+                "Quantidade destino (kg)",
+                "Status",
+                "Descrição",
+              ],
+              rows: filteredConversions.map((c) => [
+                c.id,
+                formatarData(c.createdAt),
+                c.material_origem.nome,
+                c.quantidade_origem,
+                c.material_destino.nome,
+                c.quantidade_destino,
+                c.status,
+                c.descricao,
+              ]),
+            }
+          : {
+              title: "Movimentações de estoque",
+              filters,
+              columns: [
+                "Código",
+                "Data",
+                "Material",
+                "Tipo",
+                "Quantidade (kg)",
+                "Origem",
+                "Descrição",
+              ],
+              rows: filteredTransactions.map((t) => [
+                t.id,
+                t.date,
+                t.materialName,
+                t.type,
+                t.weight,
+                t.entityName,
+                t.description,
+              ]),
+            };
+    setExportFeedback(exportReport(report, format));
+  }
+
   async function handleReverseConversion() {
     if (reverseConfirmationID === null) return;
     setConversionActionError("");
@@ -217,6 +310,11 @@ export function Estoque() {
 
   return (
     <LayoutBase activeTab="estoque" pageTitle="Estoque">
+      {exportFeedback && (
+        <p role="status" className="mb-4 text-sm text-slate-200">
+          {exportFeedback}
+        </p>
+      )}
       <div className="space-y-6 font-sans">
         {/* Banner / Tab selector */}
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -296,7 +394,7 @@ export function Estoque() {
           {/* Quick Exporters */}
           <div className="flex gap-2">
             <button
-              onClick={() => {}}
+              onClick={() => handleExport("csv")}
               className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3.5 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-emerald-500/25 select-none"
               title="Exportar dados filtrados para planilha Excel/CSV"
             >
@@ -304,7 +402,7 @@ export function Estoque() {
               Exportar CSV
             </button>
             <button
-              onClick={() => {}}
+              onClick={() => handleExport("pdf")}
               className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3.5 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-rose-500/25 select-none"
               title="Gerar relatório de auditoria em PDF oficial"
             >

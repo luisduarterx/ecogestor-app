@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   Check,
@@ -30,6 +30,7 @@ import RecordModal from "./modals/RecordModal";
 interface NewOrderProps {
   pedidoID: number;
   tipo: "COMPRA" | "VENDA";
+  onFinalized?: () => void;
 }
 
 function mensagemDoErro(error: unknown, fallback: string) {
@@ -43,12 +44,6 @@ function dataLocalISO(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function adicionarDias(dias: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + dias);
-  return dataLocalISO(date);
-}
-
 function adicionarDiasNaData(data: string, dias: number) {
   const [ano, mes, dia] = data.split("-").map(Number);
   const date = new Date(ano, mes - 1, dia);
@@ -56,18 +51,31 @@ function adicionarDiasNaData(data: string, dias: number) {
   return dataLocalISO(date);
 }
 
-function dividirEmCentavos(total: number, quantidade: number) {
-  const totalEmCentavos = Math.round(total * 100);
-  const valorBase = Math.floor(totalEmCentavos / quantidade);
-  const resto = totalEmCentavos % quantidade;
+type TituloDoPedido = {
+  id: number;
+  valor: string | null;
+  vencimento: string;
+};
 
-  return Array.from(
-    { length: quantidade },
-    (_, indice) => (valorBase + (indice < resto ? 1 : 0)) / 100,
-  );
+let proximoTituloID = 1;
+
+function novoTitulo(
+  valor: string | null = "",
+  vencimento = dataLocalISO(),
+): TituloDoPedido {
+  return { id: proximoTituloID++, valor, vencimento };
 }
 
-export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
+function valorMonetario(valor: string | null) {
+  if (valor === null) return 0;
+  return Number(valor.replace(",", "."));
+}
+
+export default function NewOrder({
+  pedidoID,
+  tipo,
+  onFinalized,
+}: NewOrderProps) {
   const pedidoQuery = useOrder(pedidoID);
   const registrosQuery = useRecords();
   const materiaisQuery = useMaterials();
@@ -84,6 +92,7 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
   const removerItem = useRemoveOrderItem(pedidoID);
   const contasQuery = useFinancialAccounts();
   const finalizarPedido = useFinalizeOrder(pedidoID);
+  const materialInputRef = useRef<HTMLInputElement>(null);
 
   const [materialID, setMaterialID] = useState("");
   const [materialSearch, setMaterialSearch] = useState("");
@@ -94,22 +103,32 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
   const [impureza, setImpureza] = useState("0");
   const [preco, setPreco] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [prazo, setPrazo] = useState<"vista" | "30d" | "60d">("vista");
-  const [quantidadeTitulos, setQuantidadeTitulos] = useState(1);
-  const [vencimentos, setVencimentos] = useState([dataLocalISO()]);
+
+  const [titulosDoPedido, setTitulosDoPedido] = useState<TituloDoPedido[]>([
+    novoTitulo(null),
+  ]);
   const [baixarAgora, setBaixarAgora] = useState(true);
   const [contaID, setContaID] = useState("");
-  const [titulo, setTitulo] = useState(
-    tipo === "COMPRA" ? "COMPRA DE MATERIAIS" : "VENDA DE MATERIAIS",
-  );
-  const [descricao, setDescricao] = useState(
-    tipo === "COMPRA" ? "PAGAMENTO DO PEDIDO" : "RECEBIMENTO DO PEDIDO",
-  );
   const [checkoutError, setCheckoutError] = useState("");
   const [isTableConfirmationOpen, setIsTableConfirmationOpen] = useState(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
   const pedido = pedidoQuery.data;
+  const contaSelecionadaID =
+    contaID ||
+    String(contasQuery.data?.find((conta) => conta.conta_padrao)?.id ?? "");
+  const totalTitulosEmCentavos = titulosDoPedido.reduce(
+    (total, item) =>
+      total +
+      (item.valor === null
+        ? Math.round((pedido?.valor_total ?? 0) * 100)
+        : Math.round((valorMonetario(item.valor) || 0) * 100)),
+    0,
+  );
+  const totalPedidoEmCentavos = Math.round((pedido?.valor_total ?? 0) * 100);
+  const diferencaTitulosEmCentavos =
+    totalPedidoEmCentavos - totalTitulosEmCentavos;
+
   const normalizedRecordSearch = recordSearch.trim().toLocaleLowerCase("pt-BR");
   const documentSearch = recordSearch.replace(/\D/g, "");
   const filteredRecords = (registrosQuery.data ?? [])
@@ -299,6 +318,7 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
       setTara("0");
       setImpureza("0");
       setPreco("");
+      materialInputRef.current?.focus();
     } catch (error) {
       setFeedback(mensagemDoErro(error, "Não foi possível incluir o item."));
     }
@@ -331,42 +351,40 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
     }
   }
 
-  function selecionarPrazo(novoPrazo: "vista" | "30d" | "60d") {
-    const primeiroVencimento =
-      novoPrazo === "vista"
-        ? dataLocalISO()
-        : adicionarDias(novoPrazo === "30d" ? 30 : 60);
-
-    setPrazo(novoPrazo);
-    setVencimentos(
-      Array.from({ length: quantidadeTitulos }, (_, indice) =>
-        adicionarDiasNaData(primeiroVencimento, indice * 30),
-      ),
-    );
-    if (novoPrazo !== "vista") {
-      setBaixarAgora(false);
-      setContaID("");
-    }
+  function adicionarTitulo() {
+    setTitulosDoPedido((atuais) => {
+      if (atuais.length >= 12) return atuais;
+      const primeiroVencimento = atuais[0]?.vencimento ?? dataLocalISO();
+      return [
+        ...atuais.map((item) => ({
+          ...item,
+          valor:
+            item.valor === null
+              ? (pedido?.valor_total ?? 0).toFixed(2)
+              : item.valor,
+        })),
+        novoTitulo(
+          "",
+          adicionarDiasNaData(primeiroVencimento, atuais.length * 30),
+        ),
+      ];
+    });
   }
 
-  function alterarQuantidadeTitulos(quantidade: number) {
-    const novaQuantidade = Math.min(12, Math.max(1, quantidade));
-    const primeiroVencimento = vencimentos[0] ?? dataLocalISO();
-
-    setQuantidadeTitulos(novaQuantidade);
-    setVencimentos(
-      Array.from({ length: novaQuantidade }, (_, indice) =>
-        adicionarDiasNaData(primeiroVencimento, indice * 30),
+  function alterarTitulo(
+    id: number,
+    campo: "valor" | "vencimento",
+    valor: string,
+  ) {
+    setTitulosDoPedido((atuais) =>
+      atuais.map((item) =>
+        item.id === id ? { ...item, [campo]: valor } : item,
       ),
     );
   }
 
-  function alterarVencimento(indice: number, data: string) {
-    setVencimentos((atuais) =>
-      atuais.map((vencimentoAtual, indiceAtual) =>
-        indiceAtual === indice ? data : vencimentoAtual,
-      ),
-    );
+  function removerTitulo(id: number) {
+    setTitulosDoPedido((atuais) => atuais.filter((item) => item.id !== id));
   }
 
   async function finalizar(event: FormEvent<HTMLFormElement>) {
@@ -386,42 +404,58 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
       setCheckoutError("Adicione ao menos um item antes de finalizar.");
       return;
     }
-    if (titulo.trim().length < 3 || descricao.trim().length < 3) {
-      setCheckoutError("Preencha o título e a descrição.");
-      return;
-    }
-    if (baixarAgora && !contaID) {
+    if (baixarAgora && !contaSelecionadaID) {
       setCheckoutError("Selecione a conta para realizar a baixa imediata.");
       return;
     }
 
-    if (vencimentos.some((data) => !data)) {
+    if (titulosDoPedido.some((item) => !item.vencimento)) {
       setCheckoutError("Informe o vencimento de todos os títulos.");
       return;
     }
-
-    const valoresDosTitulos = dividirEmCentavos(
-      pedido.valor_total,
-      quantidadeTitulos,
-    );
+    if (
+      titulosDoPedido.some(
+        (item) =>
+          !Number.isFinite(
+            item.valor === null
+              ? pedido.valor_total
+              : valorMonetario(item.valor),
+          ) ||
+          (item.valor === null
+            ? pedido.valor_total
+            : valorMonetario(item.valor)) <= 0,
+      )
+    ) {
+      setCheckoutError(
+        "Informe um valor maior que zero para todos os títulos.",
+      );
+      return;
+    }
+    if (totalTitulosEmCentavos !== totalPedidoEmCentavos) {
+      setCheckoutError("A soma dos títulos deve ser igual ao total do pedido.");
+      return;
+    }
 
     try {
+      const identificadorPedido = `PED${String(pedido.id).padStart(5, "0")}`;
+
       await finalizarPedido.mutateAsync({
         regID: pedido.regID,
-        titulos: valoresDosTitulos.map((valor, indice) => {
-          const identificacao =
-            quantidadeTitulos > 1 ? ` ${indice + 1}/${quantidadeTitulos}` : "";
-
+        titulos: titulosDoPedido.map((item) => {
           return {
-            valor,
-            vencimento: vencimentos[indice],
-            titulo: `${titulo.trim()}${identificacao}`,
-            descricao: descricao.trim(),
+            valor:
+              item.valor === null
+                ? pedido.valor_total
+                : valorMonetario(item.valor),
+            vencimento: item.vencimento,
+            titulo: identificadorPedido,
+            descricao: `REFERENTE AO PEDIDO ${identificadorPedido}`,
             baixar_agora: baixarAgora,
-            ...(baixarAgora ? { conta_id: Number(contaID) } : {}),
+            ...(baixarAgora ? { conta_id: Number(contaSelecionadaID) } : {}),
           };
         }),
       });
+      onFinalized?.();
     } catch (error) {
       setCheckoutError(
         mensagemDoErro(error, "Não foi possível finalizar o pedido."),
@@ -559,6 +593,7 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
               <label className="relative md:col-span-2 text-[10px] font-bold uppercase text-slate-400">
                 Material
                 <input
+                  ref={materialInputRef}
                   required={!materialID}
                   type="search"
                   value={materialSearch}
@@ -748,14 +783,36 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
           </div>
           <div className="flex justify-between border-t border-slate-800/60 pt-2 text-sm font-bold text-slate-200">
             <span>Total dos títulos:</span>
-            <span className="font-mono text-base text-emerald-400">
+            <span
+              className={`font-mono text-base ${
+                diferencaTitulosEmCentavos === 0
+                  ? "text-emerald-400"
+                  : "text-amber-400"
+              }`}
+            >
               R${" "}
-              {pedido.valor_total.toLocaleString("pt-BR", {
+              {(totalTitulosEmCentavos / 100).toLocaleString("pt-BR", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </span>
           </div>
+          {diferencaTitulosEmCentavos !== 0 && (
+            <div className="flex justify-between text-xs font-semibold text-amber-400">
+              <span>
+                {diferencaTitulosEmCentavos > 0
+                  ? "Falta distribuir:"
+                  : "Valor excedente:"}
+              </span>
+              <span className="font-mono">
+                R${" "}
+                {(Math.abs(diferencaTitulosEmCentavos) / 100).toLocaleString(
+                  "pt-BR",
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         {checkoutError && (
@@ -765,80 +822,76 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
         )}
 
         <form onSubmit={(event) => void finalizar(event)} className="space-y-4">
-          <label className="block text-[10px] font-bold uppercase text-slate-400">
-            Quantidade de títulos
-            <select
-              value={quantidadeTitulos}
-              onChange={(event) =>
-                alterarQuantidadeTitulos(Number(event.target.value))
-              }
-              className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300"
-            >
-              {Array.from({ length: 12 }, (_, indice) => indice + 1).map(
-                (quantidade) => (
-                  <option key={quantidade} value={quantidade}>
-                    {quantidade} {quantidade === 1 ? "título" : "títulos"}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-
-          <div>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-              Prazo do título
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { id: "vista" as const, label: "À vista" },
-                { id: "30d" as const, label: "30 dias" },
-                { id: "60d" as const, label: "60 dias" },
-              ].map((term) => (
-                <button
-                  key={term.id}
-                  type="button"
-                  onClick={() => selecionarPrazo(term.id)}
-                  className={`rounded-lg border py-2 text-[10px] font-bold uppercase ${
-                    prazo === term.id
-                      ? "border-transparent bg-emerald-400 text-slate-950"
-                      : "border-slate-800 bg-slate-950/20 text-slate-400"
-                  }`}
-                >
-                  {term.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <span className="block text-[10px] font-bold uppercase text-slate-400">
-              Títulos e vencimentos
-            </span>
-            {dividirEmCentavos(pedido.valor_total, quantidadeTitulos).map(
-              (valor, indice) => (
-                <label
-                  key={indice}
-                  className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2"
-                >
-                  <span className="text-[10px] font-semibold text-slate-400">
-                    {indice + 1}/{quantidadeTitulos} — R${" "}
-                    {valor.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase text-slate-400">
+                Títulos, valores e vencimentos
+              </span>
+              <button
+                type="button"
+                onClick={adicionarTitulo}
+                disabled={titulosDoPedido.length >= 12}
+                className="flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2 py-1.5 text-[10px] font-bold uppercase text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Adicionar título
+              </button>
+            </div>
+            {titulosDoPedido.map((item, indice) => (
+              <div
+                key={item.id}
+                className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2.5"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    Título {indice + 1}
                   </span>
-                  <input
-                    required
-                    type="date"
-                    value={vencimentos[indice] ?? ""}
-                    onChange={(event) =>
-                      alterarVencimento(indice, event.target.value)
-                    }
-                    className="rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-[10px] text-slate-200"
-                  />
-                </label>
-              ),
-            )}
+                  {titulosDoPedido.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removerTitulo(item.id)}
+                      aria-label={`Remover título ${indice + 1}`}
+                      className="rounded-md p-1 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <label className="text-[10px] font-semibold text-slate-400">
+                    Valor (R$)
+                    <input
+                      required
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={
+                        item.valor === null
+                          ? pedido.valor_total.toFixed(2)
+                          : item.valor
+                      }
+                      onChange={(event) =>
+                        alterarTitulo(item.id, "valor", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-xs text-slate-200"
+                    />
+                  </label>
+                  <label className="text-[10px] font-semibold text-slate-400">
+                    Vencimento
+                    <input
+                      required
+                      type="date"
+                      value={item.vencimento}
+                      onChange={(event) =>
+                        alterarTitulo(item.id, "vencimento", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-xs text-slate-200"
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
 
           <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -858,7 +911,7 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
               Conta financeira
               <select
                 required
-                value={contaID}
+                value={contaSelecionadaID}
                 onChange={(event) => setContaID(event.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300"
               >
@@ -874,31 +927,6 @@ export default function NewOrder({ pedidoID, tipo }: NewOrderProps) {
               </select>
             </label>
           )}
-
-          <label className="block text-[10px] font-bold uppercase text-slate-400">
-            Título
-            <input
-              required
-              minLength={3}
-              maxLength={94}
-              value={titulo}
-              onChange={(event) => setTitulo(event.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
-            />
-          </label>
-
-          <label className="block text-[10px] font-bold uppercase text-slate-400">
-            Descrição
-            <textarea
-              required
-              minLength={3}
-              maxLength={250}
-              rows={2}
-              value={descricao}
-              onChange={(event) => setDescricao(event.target.value)}
-              className="mt-1.5 w-full resize-none rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
-            />
-          </label>
 
           <button
             type="submit"

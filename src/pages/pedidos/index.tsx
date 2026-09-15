@@ -4,7 +4,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Ban,
-  CheckCircle2,
   ClipboardList,
   Edit,
   Plus,
@@ -23,6 +22,7 @@ import {
   useReopenOrder,
 } from "../../utils/queries";
 import type { ApiError, OrdersResponse } from "../../utils/types";
+import Notice from "../../components/Notice";
 
 function formatarData(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -219,24 +219,11 @@ export function Pedidos() {
               onClick={() => setActiveSubTab("list")}
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer ${
                 activeSubTab === "list"
-                  ? "bg-emerald-400 text-slate-950 shadow-md"
+                  ? "bg-slate-200 text-slate-950 shadow-md"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
               Listagem de Pedidos
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleCreateOrder("VENDA")}
-              disabled={openingOrder}
-              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
-                activeSubTab === "new_sale_order"
-                  ? "bg-emerald-400 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-emerald-400"
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-              {openingOrder ? "Verificando..." : "Pedido Venda"}
             </button>
             <button
               type="button"
@@ -245,11 +232,24 @@ export function Pedidos() {
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "new_purchase_order"
                   ? "bg-emerald-400 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-emerald-400"
+                  : "text-emerald-400/80 hover:bg-emerald-400/10 hover:text-emerald-300"
               }`}
             >
               <Plus className="h-4 w-4" />
               {openingOrder ? "Verificando..." : "Pedido Compra"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCreateOrder("VENDA")}
+              disabled={openingOrder}
+              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all select-none cursor-pointer flex items-center gap-1.5 ${
+                activeSubTab === "new_sale_order"
+                  ? "bg-amber-400 text-slate-950 shadow-md"
+                  : "text-amber-400/80 hover:bg-amber-400/10 hover:text-amber-300"
+              }`}
+            >
+              <Plus className="h-4 w-4" />
+              {openingOrder ? "Verificando..." : "Pedido Venda"}
             </button>
           </div>
         </div>
@@ -264,22 +264,7 @@ export function Pedidos() {
         )}
 
         {orderOpenNotice && (
-          <div
-            className="fixed right-4 top-4 z-[120] flex w-[calc(100%-2rem)] max-w-md items-start gap-3 rounded-xl border border-emerald-500/30 bg-slate-900 p-4 text-sm text-slate-200 shadow-2xl shadow-slate-950/50"
-            role="status"
-            aria-live="polite"
-          >
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
-            <span className="flex-1 leading-5">{orderOpenNotice}</span>
-            <button
-              type="button"
-              onClick={() => setOrderOpenNotice("")}
-              className="rounded-md p-0.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
-              aria-label="Fechar notificação"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+          <Notice data={orderOpenNotice} setNotice={setOrderOpenNotice} />
         )}
 
         {/* SUBTAB 1: ORDERS LIST WORKSPACE */}
@@ -557,7 +542,17 @@ export function Pedidos() {
         {/* SUBTAB 2: LAUNCH NEW SALE ORDER WORKSPACE */}
         {currentOrder && activeSubTab !== "list" && (
           <div>
-            <NewOrder pedidoID={currentOrder.id} tipo={currentOrder.tipo} />
+            <NewOrder
+              pedidoID={currentOrder.id}
+              tipo={currentOrder.tipo}
+              onFinalized={() => {
+                setOrderOpenNotice(
+                  `Pedido #${currentOrder.id} finalizado com sucesso.`,
+                );
+                setActiveSubTab("list");
+                setCurrentOrder(null);
+              }}
+            />
           </div>
         )}
 

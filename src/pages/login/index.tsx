@@ -1,4 +1,4 @@
-import { Leaf, Lock, User, AlertCircle, Sparkles } from "lucide-react";
+import { Lock, User, AlertCircle, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -38,15 +38,12 @@ export function Login() {
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center items-center gap-2 mb-4">
-          <div className="p-3 bg-emerald-500/20 rounded-2xl border border-emerald-500/30 text-emerald-400">
-            <Leaf className="h-8 w-8 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
-              Eco<span className="text-emerald-400 font-normal">Gestor</span>
-            </h1>
-          </div>
+        <div className="mb-5 flex justify-center">
+          <img
+            src="/LOGOS_BRANCA.png"
+            alt="EcoGestor"
+            className="h-auto w-72 max-w-[70vw] object-contain"
+          />
         </div>
 
         <p className="mt-2 text-center text-sm text-slate-400">
@@ -159,7 +156,7 @@ export function Login() {
           <div className="mt-6 border-t border-slate-700/60 pt-4 text-center">
             <span className="text-xs text-slate-500 flex items-center justify-center gap-1 font-mono">
               <Sparkles className="h-3 w-3 text-emerald-400" />
-              ECOGESTOR v1.0.0 — Licenciado para 43.746.082.0001-40
+              ECOGESTOR v1.0.0
             </span>
           </div>
         </div>
