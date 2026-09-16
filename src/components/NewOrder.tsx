@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useDeferredValue, useRef, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   Check,
@@ -16,6 +16,7 @@ import {
   useFinancialAccounts,
   useMaterials,
   useOrder,
+  useRecord,
   useRecords,
   useRemoveOrderItem,
   useSetOrderRecord,
@@ -77,12 +78,19 @@ export default function NewOrder({
   onFinalized,
 }: NewOrderProps) {
   const pedidoQuery = useOrder(pedidoID);
-  const registrosQuery = useRecords();
+  const [materialID, setMaterialID] = useState("");
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [recordSearch, setRecordSearch] = useState("");
+  const [recordSearchTouched, setRecordSearchTouched] = useState(false);
+  const deferredRecordSearch = useDeferredValue(recordSearch);
+  const registrosQuery = useRecords({
+    search: recordSearchTouched ? deferredRecordSearch : undefined,
+    take: 1000,
+  });
+  const registroSelecionadoQuery = useRecord(pedidoQuery.data?.regID);
   const materiaisQuery = useMaterials();
   const tabelasQuery = useTables();
-  const registroSelecionado = registrosQuery.data?.find(
-    (registro) => registro.id === pedidoQuery.data?.regID,
-  );
+  const registroSelecionado = registroSelecionadoQuery.data;
   const tabelaDoRegistroQuery = useTable(
     tipo === "COMPRA" ? registroSelecionado?.tabela.id : undefined,
   );
@@ -94,10 +102,6 @@ export default function NewOrder({
   const finalizarPedido = useFinalizeOrder(pedidoID);
   const materialInputRef = useRef<HTMLInputElement>(null);
 
-  const [materialID, setMaterialID] = useState("");
-  const [materialSearch, setMaterialSearch] = useState("");
-  const [recordSearch, setRecordSearch] = useState("");
-  const [recordSearchTouched, setRecordSearchTouched] = useState(false);
   const [pesoBruto, setPesoBruto] = useState("");
   const [tara, setTara] = useState("0");
   const [impureza, setImpureza] = useState("0");
@@ -131,20 +135,20 @@ export default function NewOrder({
 
   const normalizedRecordSearch = recordSearch.trim().toLocaleLowerCase("pt-BR");
   const documentSearch = recordSearch.replace(/\D/g, "");
-  const filteredRecords = (registrosQuery.data ?? [])
-    .filter((registro) => {
-      if (!normalizedRecordSearch) return true;
-      return (
-        registro.nome
-          .toLocaleLowerCase("pt-BR")
-          .includes(normalizedRecordSearch) ||
-        registro.apelido
-          ?.toLocaleLowerCase("pt-BR")
-          .includes(normalizedRecordSearch) ||
-        (Boolean(documentSearch) && registro.documento.includes(documentSearch))
-      );
-    })
-    .slice(0, 8);
+  const pesquisandoRegistros =
+    registrosQuery.isFetching || deferredRecordSearch !== recordSearch;
+  const filteredRecords = (registrosQuery.data ?? []).filter((registro) => {
+    if (!normalizedRecordSearch) return true;
+    return (
+      registro.nome
+        .toLocaleLowerCase("pt-BR")
+        .includes(normalizedRecordSearch) ||
+      registro.apelido
+        ?.toLocaleLowerCase("pt-BR")
+        .includes(normalizedRecordSearch) ||
+      (Boolean(documentSearch) && registro.documento.includes(documentSearch))
+    );
+  });
   const normalizedMaterialSearch = materialSearch
     .trim()
     .toLocaleLowerCase("pt-BR");
@@ -163,7 +167,8 @@ export default function NewOrder({
     .slice(0, 8);
   const carregando =
     pedidoQuery.isPending ||
-    registrosQuery.isPending ||
+    (!recordSearchTouched && registrosQuery.isPending) ||
+    (Boolean(pedidoQuery.data?.regID) && registroSelecionadoQuery.isPending) ||
     materiaisQuery.isPending ||
     tabelasQuery.isPending ||
     (tipo === "COMPRA" &&
@@ -172,7 +177,8 @@ export default function NewOrder({
     contasQuery.isPending;
   const erroDeCarga =
     pedidoQuery.isError ||
-    registrosQuery.isError ||
+    (!recordSearchTouched && registrosQuery.isError) ||
+    registroSelecionadoQuery.isError ||
     materiaisQuery.isError ||
     tabelasQuery.isError ||
     (tipo === "COMPRA" && tabelaDoRegistroQuery.isError) ||
@@ -536,32 +542,45 @@ export default function NewOrder({
               />
               {recordSearchTouched && (
                 <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl">
-                  {filteredRecords.map((registro) => (
-                    <button
-                      key={registro.id}
-                      type="button"
-                      onClick={() => {
-                        setRecordSearch(
-                          `${registro.apelido || registro.nome} — ${registro.documento}`,
-                        );
-                        setRecordSearchTouched(false);
-                        void alterarRegistro(String(registro.id));
-                      }}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800"
-                    >
-                      <span className="font-semibold">
-                        {registro.apelido || registro.nome}
-                      </span>
-                      <span className="font-mono text-[10px] text-slate-500">
-                        {registro.documento}
-                      </span>
-                    </button>
-                  ))}
-                  {filteredRecords.length === 0 && (
+                  {pesquisandoRegistros && (
                     <p className="px-3 py-2 text-xs text-slate-500">
-                      Nenhum registro encontrado.
+                      Pesquisando registros...
                     </p>
                   )}
+                  {!pesquisandoRegistros && registrosQuery.isError && (
+                    <p className="px-3 py-2 text-xs text-rose-400">
+                      Não foi possível pesquisar os registros.
+                    </p>
+                  )}
+                  {!pesquisandoRegistros &&
+                    filteredRecords.map((registro) => (
+                      <button
+                        key={registro.id}
+                        type="button"
+                        onClick={() => {
+                          setRecordSearch(
+                            `${registro.apelido || registro.nome} — ${registro.documento}`,
+                          );
+                          setRecordSearchTouched(false);
+                          void alterarRegistro(String(registro.id));
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800"
+                      >
+                        <span className="font-semibold">
+                          {registro.apelido || registro.nome}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-500">
+                          {registro.documento}
+                        </span>
+                      </button>
+                    ))}
+                  {!pesquisandoRegistros &&
+                    !registrosQuery.isError &&
+                    filteredRecords.length === 0 && (
+                      <p className="px-3 py-2 text-xs text-slate-500">
+                        Nenhum registro encontrado.
+                      </p>
+                    )}
                 </div>
               )}
               {pedido.regID && (
