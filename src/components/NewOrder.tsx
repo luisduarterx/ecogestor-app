@@ -639,9 +639,6 @@ export default function NewOrder({
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs normal-case text-slate-300 hover:bg-slate-800"
                       >
                         <span className="font-semibold">{material.nome}</span>
-                        <span className="text-[10px] text-slate-500">
-                          {material.categoria.nome}
-                        </span>
                       </button>
                     ))}
                     {filteredMaterials.length === 0 && (
