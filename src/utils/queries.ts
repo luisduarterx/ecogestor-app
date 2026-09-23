@@ -305,15 +305,11 @@ export function useUpdateMaterial(materialID?: number) {
       return data;
     },
     onSuccess: async () => {
-      console.log("ok");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["materiais"] }),
         queryClient.invalidateQueries({ queryKey: ["estoque", "saldos"] }),
         queryClient.invalidateQueries({ queryKey: ["tabelas"] }),
       ]);
-    },
-    onError: async (err) => {
-      console.log(err);
     },
   });
 }
