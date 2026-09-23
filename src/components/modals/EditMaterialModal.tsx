@@ -7,7 +7,11 @@ import {
   useMaterialCategories,
   useUpdateMaterial,
 } from "../../utils/queries";
-import type { ApiError, MaterialResponse } from "../../utils/types";
+import type {
+  ApiError,
+  MaterialResponse,
+  UpdateMaterialInput,
+} from "../../utils/types";
 
 interface EditMaterialModalProps {
   setIsOpen: (value: boolean) => void;
@@ -95,28 +99,34 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
       Number(editMaxStock) < Number(editMinStock) ||
       !editUnit
     ) {
-      console.log(
-        editMaterialCategory,
-        editMaterialName,
-        editMaterialStatus,
-        editMaxStock,
-        editMinStock,
-        editSellPrice,
-        editUnit,
-      );
       setEditError("Preencha nome, categoria e preços válidos.");
       return;
     }
+
+    const name = editMaterialName.trim();
+    const categoryID = Number(editMaterialCategory);
+    const sellPrice = Number(editSellPrice);
+    const minStock = Number(editMinStock);
+    const maxStock = Number(editMaxStock);
+    const changes: UpdateMaterialInput = {};
+
+    if (name !== material.nome) changes.nome = name;
+    if (categoryID !== material.categoria.id) changes.catID = categoryID;
+    if (sellPrice !== material.preco_venda) changes.preco_venda = sellPrice;
+    if (minStock !== (material.est_min ?? 0)) changes.est_min = minStock;
+    if (maxStock !== (material.est_max ?? 0)) changes.est_max = maxStock;
+    if (editUnit !== material.unidade) changes.unidade = editUnit;
+    if (editMaterialStatus !== material.status) {
+      changes.status = editMaterialStatus;
+    }
+
+    if (Object.keys(changes).length === 0) {
+      setIsOpen(false);
+      return;
+    }
+
     try {
-      await updateMaterial.mutateAsync({
-        nome: editMaterialName.trim(),
-        catID: Number(editMaterialCategory),
-        preco_venda: Number(editSellPrice),
-        est_min: Number(editMinStock),
-        est_max: Number(editMaxStock),
-        unidade: editUnit,
-        status: editMaterialStatus,
-      });
+      await updateMaterial.mutateAsync(changes);
       setIsOpen(false);
     } catch (error) {
       setEditError(
