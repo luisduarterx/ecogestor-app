@@ -155,14 +155,15 @@ export default function NewOrder({
   const filteredMaterials = (materiaisQuery.data ?? [])
     .filter((material) => {
       if (!normalizedMaterialSearch) return true;
-      return (
-        material.nome
-          .toLocaleLowerCase("pt-BR")
-          .includes(normalizedMaterialSearch) ||
-        material.categoria.nome
-          .toLocaleLowerCase("pt-BR")
-          .includes(normalizedMaterialSearch)
-      );
+
+      const nomeMatch = material.nome
+        .toLocaleLowerCase("pt-BR")
+        .includes(normalizedMaterialSearch);
+
+      // Converte o id para string e verifica se contem o termo buscado
+      const idMatch = String(material.id) === normalizedMaterialSearch.trim();
+
+      return nomeMatch || idMatch;
     })
     .slice(0, 8);
   const carregando =
@@ -639,9 +640,6 @@ export default function NewOrder({
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs normal-case text-slate-300 hover:bg-slate-800"
                       >
                         <span className="font-semibold">{material.nome}</span>
-                        <span className="text-[10px] text-slate-500">
-                          {material.categoria.nome}
-                        </span>
                       </button>
                     ))}
                     {filteredMaterials.length === 0 && (
