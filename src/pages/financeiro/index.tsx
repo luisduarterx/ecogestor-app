@@ -326,6 +326,12 @@ export function Financeiro() {
     dataInicial: entryStartDate,
     dataFinal: entryEndDate,
   });
+  const filteredEntriesSummaryQuery = useFinancialEntries({
+    status: entryStatusFilter === "all" ? undefined : entryStatusFilter,
+    nome: deferredOpenSearch,
+    dataInicial: entryStartDate,
+    dataFinal: entryEndDate,
+  });
   const openEntriesSummaryQuery = useFinancialEntries({ status: "ABERTO" });
   const filteredOpenLog = (financialEntriesQuery.data ?? []).map((entry) => ({
     id: entry.id,
@@ -357,6 +363,14 @@ export function Financeiro() {
     0,
   );
   const totalPendingCount = pendingEntries.length;
+  const filteredEntriesSummary = filteredEntriesSummaryQuery.data ?? [];
+  const filteredEntriesCount = filteredEntriesSummary.length;
+  const filteredExpensesCount = filteredEntriesSummary.filter(
+    (entry) => entry.tipo === "PAGAR",
+  ).length;
+  const filteredIncomesCount = filteredEntriesSummary.filter(
+    (entry) => entry.tipo === "RECEBER",
+  ).length;
   const [exportFeedback, setExportFeedback] = useState("");
   function handleExport(format: "csv" | "pdf") {
     if (financialMovementsQuery.isFetching) {
@@ -1392,85 +1406,110 @@ export function Financeiro() {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-center">
-              <div className="relative w-full xl:col-span-2">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Buscar por título, descrição, categoria ou registro..."
-                  value={openSearchTerm}
-                  onChange={(e) => setOpenSearchTerm(e.target.value)}
-                  className="w-full bg-slate-950/50 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
+            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col lg:flex-row gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div className="relative w-full">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por título, descrição, categoria ou registro..."
+                    value={openSearchTerm}
+                    onChange={(e) => setOpenSearchTerm(e.target.value)}
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[10px] font-bold uppercase text-slate-500">
+                    Tipo
+                  </span>
+                  <button
+                    onClick={() => setOpenTypeFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      openTypeFilter === "all"
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                        : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
+                    }`}
+                  >
+                    Todas ({filteredEntriesCount})
+                  </button>
+                  <button
+                    onClick={() => setOpenTypeFilter("expense")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      openTypeFilter === "expense"
+                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                        : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
+                    }`}
+                  >
+                    A Pagar ({filteredExpensesCount})
+                  </button>
+                  <button
+                    onClick={() => setOpenTypeFilter("income")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      openTypeFilter === "income"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
+                    }`}
+                  >
+                    A Receber ({filteredIncomesCount})
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[10px] font-bold uppercase text-slate-500">
+                    Status
+                  </span>
+                  {[
+                    ["all", "Todos"],
+                    ["ABERTO", "Em aberto"],
+                    ["PAGO", "Pago"],
+                    ["CANCELADO", "Cancelado"],
+                  ].map(([status, label]) => (
+                    <button
+                      key={status}
+                      onClick={() =>
+                        setEntryStatusFilter(status as typeof entryStatusFilter)
+                      }
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        entryStatusFilter === status
+                          ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                          : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <select
-                value={entryStatusFilter}
-                onChange={(event) =>
-                  setEntryStatusFilter(
-                    event.target.value as typeof entryStatusFilter,
-                  )
-                }
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
-              >
-                <option value="all">Todos os status</option>
-                <option value="ABERTO">Em aberto</option>
-                <option value="PAGO">Pago</option>
-                <option value="CANCELADO">Cancelado</option>
-              </select>
-
-              <label className="text-[10px] font-bold uppercase text-slate-500">
-                Data inicial
-                <input
-                  type="date"
-                  value={entryStartDate}
-                  max={entryEndDate || undefined}
-                  onChange={(event) => setEntryStartDate(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-slate-500">
-                Data final
-                <input
-                  type="date"
-                  value={entryEndDate}
-                  min={entryStartDate || undefined}
-                  onChange={(event) => setEntryEndDate(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-              </label>
-
-              <div className="flex items-center gap-1.5 w-full md:col-span-2 xl:col-span-5">
-                <button
-                  onClick={() => setOpenTypeFilter("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    openTypeFilter === "all"
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
-                  }`}
-                >
-                  Todas ({totalPendingCount})
-                </button>
-                <button
-                  onClick={() => setOpenTypeFilter("expense")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    openTypeFilter === "expense"
-                      ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                      : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
-                  }`}
-                >
-                  A Pagar ({pendingExpenses.length})
-                </button>
-                <button
-                  onClick={() => setOpenTypeFilter("income")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    openTypeFilter === "income"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-slate-950/40 text-slate-400 hover:text-slate-200 border border-slate-800"
-                  }`}
-                >
-                  A Receber ({pendingIncomes.length})
-                </button>
+              <div className="w-full shrink-0 border-t border-slate-800 pt-4 lg:w-52 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-4">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Período
+                </p>
+                <div className="flex flex-col gap-3">
+                  <label className="text-[10px] font-bold uppercase text-slate-500">
+                    Data inicial
+                    <input
+                      type="date"
+                      value={entryStartDate}
+                      max={entryEndDate || undefined}
+                      onChange={(event) =>
+                        setEntryStartDate(event.target.value)
+                      }
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </label>
+                  <label className="text-[10px] font-bold uppercase text-slate-500">
+                    Data final
+                    <input
+                      type="date"
+                      value={entryEndDate}
+                      min={entryStartDate || undefined}
+                      onChange={(event) => setEntryEndDate(event.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
 
