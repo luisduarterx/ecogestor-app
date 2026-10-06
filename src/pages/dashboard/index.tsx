@@ -42,6 +42,19 @@ function inputDate(date: Date) {
   return new Intl.DateTimeFormat("en-CA").format(date);
 }
 
+function isValidInputDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
 function localDate(value: string) {
   return new Date(`${value}T12:00:00`);
 }
@@ -131,6 +144,7 @@ export function Dashboard() {
   const [mode, setMode] = useState<"overview" | "purchases">("overview");
   const [startDate, setStartDate] = useState(inputDate(firstDay));
   const [endDate, setEndDate] = useState(inputDate(today));
+  const [dateError, setDateError] = useState<string | null>(null);
   const previous = useMemo(
     () => previousPeriod(startDate, endDate),
     [startDate, endDate],
@@ -230,6 +244,37 @@ export function Dashboard() {
     if (preset === "30days") start.setDate(start.getDate() - 29);
     setStartDate(inputDate(start));
     setEndDate(inputDate(end));
+    setDateError(null);
+  }
+
+  function changeStartDate(value: string) {
+    if (!isValidInputDate(value)) {
+      setDateError("Informe uma data inicial válida.");
+      return;
+    }
+    if (value > endDate) {
+      setDateError("A data inicial não pode ser posterior à data final.");
+      return;
+    }
+    setStartDate(value);
+    setDateError(null);
+  }
+
+  function changeEndDate(value: string) {
+    if (!isValidInputDate(value)) {
+      setDateError("Informe uma data final válida.");
+      return;
+    }
+    if (value < startDate) {
+      setDateError("A data final não pode ser anterior à data inicial.");
+      return;
+    }
+    if (value > inputDate(today)) {
+      setDateError("A data final não pode ser posterior à data de hoje.");
+      return;
+    }
+    setEndDate(value);
+    setDateError(null);
   }
 
   function refresh() {
@@ -267,7 +312,8 @@ export function Dashboard() {
                   type="date"
                   value={startDate}
                   max={endDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  aria-invalid={Boolean(dateError)}
+                  onChange={(event) => changeStartDate(event.target.value)}
                   className="mt-1 block rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500"
                 />
               </label>
@@ -278,7 +324,8 @@ export function Dashboard() {
                   value={endDate}
                   min={startDate}
                   max={inputDate(today)}
-                  onChange={(event) => setEndDate(event.target.value)}
+                  aria-invalid={Boolean(dateError)}
+                  onChange={(event) => changeEndDate(event.target.value)}
                   className="mt-1 block rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500"
                 />
               </label>
@@ -314,6 +361,14 @@ export function Dashboard() {
               </button>
             </div>
           </div>
+          {dateError && (
+            <p
+              className="relative mt-3 text-right text-xs font-medium text-rose-400"
+              role="alert"
+            >
+              {dateError}
+            </p>
+          )}
         </section>
 
         <section>
