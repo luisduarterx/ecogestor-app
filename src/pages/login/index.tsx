@@ -21,7 +21,6 @@ export function Login() {
       event.preventDefault();
       const result = await loginUser({ email, senha });
       setUser(result.user);
-      localStorage.setItem("sid", result.token);
       navigate("/dashboard");
     } catch (error) {
       const apiErr = error as ApiError;

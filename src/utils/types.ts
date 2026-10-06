@@ -7,7 +7,16 @@ export type UserAuthenticated = {
 };
 export type LoginReponse = {
   user: UserAuthenticated;
-  token: string;
+  expiresAt: string;
+};
+export type SessionUserResponse = {
+  id: number;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  cargo: {
+    id: number;
+  };
 };
 export type ApiError = {
   nome: string;
@@ -41,6 +50,17 @@ export type DashboardSummary = {
   };
   fornecedores: [];
   gerado_em: Date;
+};
+export type DashboardMaterialReport = {
+  id: number;
+  nome: string;
+  categoria: { id: number | null; nome: string };
+  compras: { peso: number; valor: number; pedidos: number };
+  vendas: { peso: number; valor: number; pedidos: number };
+};
+export type DashboardMaterialsReport = {
+  periodo: { dataInicial: string; dataFinal: string };
+  materiais: DashboardMaterialReport[];
 };
 export type OrdersResponse = {
   id: number;

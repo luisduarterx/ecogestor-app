@@ -6,8 +6,7 @@ import { useEffect } from "react";
 export function GuestRoute() {
   const { setUser, logout } = useLoggedUser();
 
-  const token = localStorage.getItem("sid");
-  const session = useSession(Boolean(token));
+  const session = useSession();
 
   useEffect(() => {
     if (session.isSuccess) {
@@ -19,9 +18,6 @@ export function GuestRoute() {
     }
   }, [session.isSuccess, session.isError, session.data, setUser, logout]);
 
-  if (!token) {
-    return <Outlet />;
-  }
   if (session.isPending) {
     return <div>...Carregando</div>;
   }

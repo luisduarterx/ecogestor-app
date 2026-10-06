@@ -2,6 +2,8 @@ import { Bell, Menu } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
+import { useLogout } from "../utils/queries";
+import type { ApiError } from "../utils/types";
 import Sidebar from "./SideBar";
 
 interface LayoutProps {
@@ -13,6 +15,7 @@ interface LayoutProps {
 export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user, logout } = useLoggedUser();
+  const { mutateAsync: signout } = useLogout();
   const navigate = useNavigate();
   const userInitials = (user?.nome.trim() || "Operador")
     .split(/\s+/)
@@ -21,9 +24,19 @@ export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
     .join("")
     .toLocaleUpperCase("pt-BR");
 
-  function handleLogout() {
-    logout();
-    navigate("/");
+  async function handleLogout() {
+    try {
+      await signout();
+      logout();
+      navigate("/");
+    } catch (error) {
+      if ((error as ApiError).statusCode === 401) {
+        logout();
+        navigate("/");
+        return;
+      }
+      console.error("Não foi possível encerrar a sessão.", error);
+    }
   }
 
   return (

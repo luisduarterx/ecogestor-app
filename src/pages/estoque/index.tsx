@@ -1,5 +1,6 @@
 import {
   ArrowRightLeft,
+  CalendarRange,
   Database,
   Eye,
   FileText,
@@ -16,6 +17,7 @@ import InventoryMovementModal from "../../components/modals/InventoryMovementMod
 import InventoryConversionModal from "../../components/modals/InventoryConversionModel";
 import {
   useInventoryBalances,
+  useDashboardMaterials,
   useInventoryConversion,
   useInventoryConversions,
   useInventoryMovements,
@@ -26,6 +28,10 @@ import type { ApiError } from "../../utils/types";
 import { exportReport, type Report } from "../../utils/reportExport";
 
 const DEFAULT_MATERIAL_COLOR = "#34d399";
+
+function toInputDate(date: Date) {
+  return new Intl.DateTimeFormat("en-CA").format(date);
+}
 
 function formatarData(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -41,12 +47,18 @@ function tipoVisual(tipo: string) {
 }
 
 export function Estoque() {
+  const today = new Date();
   const [activeSubTab, setActiveSubTab] = useState("statement");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("all");
+  const [periodFlowFilter, setPeriodFlowFilter] = useState<
+    "all" | "purchases" | "sales"
+  >("all");
+  const [reportStartDate, setReportStartDate] = useState(toInputDate(today));
+  const [reportEndDate, setReportEndDate] = useState(toInputDate(today));
   const [conversionStatusFilter, setConversionStatusFilter] = useState<
     "all" | "ATIVA" | "ESTORNADA"
   >("all");
@@ -58,6 +70,10 @@ export function Estoque() {
   >(null);
   const [conversionActionError, setConversionActionError] = useState("");
   const balancesQuery = useInventoryBalances();
+  const materialsReportQuery = useDashboardMaterials(
+    reportStartDate,
+    reportEndDate,
+  );
   const movementsQuery = useInventoryMovements({});
   const conversionsQuery = useInventoryConversions(
     conversionStatusFilter === "all" ? undefined : conversionStatusFilter,
@@ -76,8 +92,13 @@ export function Estoque() {
         movement.material.categoria.nome,
       ),
     );
+    materialsReportQuery.data?.materiais.forEach((material) => {
+      if (material.categoria.id !== null) {
+        categoriesByID.set(material.categoria.id, material.categoria.nome);
+      }
+    });
     return [...categoriesByID].map(([id, nome]) => ({ id, nome }));
-  }, [balancesQuery.data, movementsQuery.data]);
+  }, [balancesQuery.data, materialsReportQuery.data, movementsQuery.data]);
 
   const [exportFeedback, setExportFeedback] = useState("");
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
@@ -203,13 +224,62 @@ export function Estoque() {
     normalizedSearch,
   ]);
 
+  const filteredPeriodMaterials = useMemo(
+    () =>
+      (materialsReportQuery.data?.materiais ?? [])
+        .filter(
+          (material) =>
+            categoryFilter === "all" ||
+            material.categoria.id === Number(categoryFilter),
+        )
+        .filter(
+          (material) =>
+            !normalizedSearch ||
+            material.nome
+              .toLocaleLowerCase("pt-BR")
+              .includes(normalizedSearch) ||
+            material.categoria.nome
+              .toLocaleLowerCase("pt-BR")
+              .includes(normalizedSearch) ||
+            String(material.id).includes(normalizedSearch),
+        )
+        .filter(
+          (material) =>
+            periodFlowFilter === "all" ||
+            (periodFlowFilter === "purchases" && material.compras.peso > 0) ||
+            (periodFlowFilter === "sales" && material.vendas.peso > 0),
+        ),
+    [
+      categoryFilter,
+      materialsReportQuery.data,
+      normalizedSearch,
+      periodFlowFilter,
+    ],
+  );
+
+  const periodTotals = useMemo(
+    () =>
+      filteredPeriodMaterials.reduce(
+        (totals, material) => ({
+          purchasedWeight: totals.purchasedWeight + material.compras.peso,
+          purchasedValue: totals.purchasedValue + material.compras.valor,
+          soldWeight: totals.soldWeight + material.vendas.peso,
+          soldValue: totals.soldValue + material.vendas.valor,
+        }),
+        { purchasedWeight: 0, purchasedValue: 0, soldWeight: 0, soldValue: 0 },
+      ),
+    [filteredPeriodMaterials],
+  );
+
   function handleExport(format: "csv" | "pdf") {
     const query =
       activeSubTab === "levels"
         ? balancesQuery
-        : activeSubTab === "conversions"
-          ? conversionsQuery
-          : movementsQuery;
+        : activeSubTab === "period-report"
+          ? materialsReportQuery
+          : activeSubTab === "conversions"
+            ? conversionsQuery
+            : movementsQuery;
     if (query.isFetching || balancesQuery.isFetching) {
       setExportFeedback("Aguarde o carregamento dos dados.");
       return;
@@ -220,7 +290,7 @@ export function Estoque() {
       );
       return;
     }
-    const filters = `Busca: ${searchTerm || "Todas"}; categoria (ID): ${categoryFilter}; fluxo: ${transactionTypeFilter}; status de conversão: ${conversionStatusFilter || "Todos"}`;
+    const filters = `Busca: ${searchTerm || "Todas"}; categoria (ID): ${categoryFilter}; fluxo: ${activeSubTab === "period-report" ? periodFlowFilter : transactionTypeFilter}; período: ${reportStartDate} a ${reportEndDate}; status de conversão: ${conversionStatusFilter || "Todos"}`;
     const report: Report =
       activeSubTab === "levels"
         ? {
@@ -243,53 +313,78 @@ export function Estoque() {
               m.totalValue ?? 0,
             ]),
           }
-        : activeSubTab === "conversions"
+        : activeSubTab === "period-report"
           ? {
-              title: "Conversões de estoque",
+              title: "Materiais comprados e vendidos por período",
               filters,
               columns: [
                 "Código",
-                "Data",
-                "Origem",
-                "Quantidade origem (kg)",
-                "Destino",
-                "Quantidade destino (kg)",
-                "Status",
-                "Descrição",
+                "Material",
+                "Categoria",
+                "Comprado (kg)",
+                "Valor comprado (R$)",
+                "Vendido (kg)",
+                "Valor vendido (R$)",
+                "Saldo do período (kg)",
               ],
-              rows: filteredConversions.map((c) => [
-                c.id,
-                formatarData(c.createdAt),
-                c.material_origem.nome,
-                c.quantidade_origem,
-                c.material_destino.nome,
-                c.quantidade_destino,
-                c.status,
-                c.descricao,
+              rows: filteredPeriodMaterials.map((material) => [
+                material.id,
+                material.nome,
+                material.categoria.nome,
+                material.compras.peso,
+                material.compras.valor,
+                material.vendas.peso,
+                material.vendas.valor,
+                material.compras.peso - material.vendas.peso,
               ]),
             }
-          : {
-              title: "Movimentações de estoque",
-              filters,
-              columns: [
-                "Código",
-                "Data",
-                "Material",
-                "Tipo",
-                "Quantidade (kg)",
-                "Origem",
-                "Descrição",
-              ],
-              rows: filteredTransactions.map((t) => [
-                t.id,
-                t.date,
-                t.materialName,
-                t.type,
-                t.weight,
-                t.entityName,
-                t.description,
-              ]),
-            };
+          : activeSubTab === "conversions"
+            ? {
+                title: "Conversões de estoque",
+                filters,
+                columns: [
+                  "Código",
+                  "Data",
+                  "Origem",
+                  "Quantidade origem (kg)",
+                  "Destino",
+                  "Quantidade destino (kg)",
+                  "Status",
+                  "Descrição",
+                ],
+                rows: filteredConversions.map((c) => [
+                  c.id,
+                  formatarData(c.createdAt),
+                  c.material_origem.nome,
+                  c.quantidade_origem,
+                  c.material_destino.nome,
+                  c.quantidade_destino,
+                  c.status,
+                  c.descricao,
+                ]),
+              }
+            : {
+                title: "Movimentações de estoque",
+                filters,
+                columns: [
+                  "Código",
+                  "Data",
+                  "Material",
+                  "Tipo",
+                  "Quantidade (kg)",
+                  "Origem",
+                  "Descrição",
+                ],
+                rows: filteredTransactions.map((t) => [
+                  t.id,
+                  t.date,
+                  t.materialName,
+                  t.type,
+                  t.weight,
+                  t.entityName,
+                  t.description,
+                ]),
+              };
     setExportFeedback(exportReport(report, format));
   }
 
@@ -352,7 +447,7 @@ export function Estoque() {
 
         {/* Sub Tabs Toggle (Levels / Extrato) & Export Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex bg-slate-900/50 border border-slate-800 p-1 rounded-xl max-w-sm w-full sm:w-auto">
+          <div className="flex flex-wrap bg-slate-900/50 border border-slate-800 p-1 rounded-xl w-full sm:w-auto">
             <button
               onClick={() => {
                 setActiveSubTab("levels");
@@ -376,6 +471,18 @@ export function Estoque() {
               }`}
             >
               Extrato de Material
+            </button>
+            <button
+              onClick={() => {
+                setActiveSubTab("period-report");
+              }}
+              className={`flex-1 sm:flex-initial sm:px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-150 cursor-pointer ${
+                activeSubTab === "period-report"
+                  ? "bg-emerald-400 text-slate-950 shadow-md font-extrabold"
+                  : "text-slate-400 hover:text-slate-100"
+              }`}
+            >
+              Compras e Vendas
             </button>
             <button
               onClick={() => {
@@ -413,7 +520,9 @@ export function Estoque() {
         </div>
 
         {/* Filters Toolbar */}
-        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+        <div
+          className={`bg-slate-900 p-4 rounded-xl border border-slate-800 grid grid-cols-1 gap-3 items-center ${activeSubTab === "period-report" ? "md:grid-cols-5" : "md:grid-cols-3"}`}
+        >
           {/* Search Input */}
           <div className="relative">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -424,9 +533,11 @@ export function Estoque() {
               placeholder={
                 activeSubTab === "levels"
                   ? "Filtrar material por nome..."
-                  : activeSubTab === "conversions"
-                    ? "Buscar conversão por material, código ou descrição..."
-                    : "Buscar extrato por material, código ou fornecedor..."
+                  : activeSubTab === "period-report"
+                    ? "Buscar material comprado ou vendido..."
+                    : activeSubTab === "conversions"
+                      ? "Buscar conversão por material, código ou descrição..."
+                      : "Buscar extrato por material, código ou fornecedor..."
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -449,7 +560,46 @@ export function Estoque() {
           </select>
 
           {/* Transaction Type Filter (ONLY on Statement Tab) */}
-          {activeSubTab === "statement" ? (
+          {activeSubTab === "period-report" ? (
+            <>
+              <label className="relative">
+                <span className="sr-only">Data inicial</span>
+                <CalendarRange className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="date"
+                  value={reportStartDate}
+                  max={reportEndDate}
+                  onChange={(event) => setReportStartDate(event.target.value)}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950/40 py-2.5 pl-9 pr-3 text-xs text-slate-300 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+              </label>
+              <label className="relative">
+                <span className="sr-only">Data final</span>
+                <CalendarRange className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="date"
+                  value={reportEndDate}
+                  min={reportStartDate}
+                  max={toInputDate(today)}
+                  onChange={(event) => setReportEndDate(event.target.value)}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950/40 py-2.5 pl-9 pr-3 text-xs text-slate-300 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+              </label>
+              <select
+                value={periodFlowFilter}
+                onChange={(event) =>
+                  setPeriodFlowFilter(
+                    event.target.value as "all" | "purchases" | "sales",
+                  )
+                }
+                className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+              >
+                <option value="all">Compras e vendas</option>
+                <option value="purchases">Somente comprados</option>
+                <option value="sales">Somente vendidos</option>
+              </select>
+            </>
+          ) : activeSubTab === "statement" ? (
             <select
               value={transactionTypeFilter}
               onChange={(e) => setTransactionTypeFilter(e.target.value)}
@@ -582,6 +732,171 @@ export function Estoque() {
                 </div>
               );
             })}
+          </div>
+        ) : activeSubTab === "period-report" ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Peso comprado
+                </span>
+                <strong className="mt-1 block text-xl text-emerald-400">
+                  {periodTotals.purchasedWeight.toLocaleString("pt-BR")} kg
+                </strong>
+              </div>
+              <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Valor comprado
+                </span>
+                <strong className="mt-1 block text-xl text-emerald-400">
+                  {periodTotals.purchasedValue.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
+              </div>
+              <div className="rounded-xl border border-rose-500/15 bg-rose-500/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Peso vendido
+                </span>
+                <strong className="mt-1 block text-xl text-rose-400">
+                  {periodTotals.soldWeight.toLocaleString("pt-BR")} kg
+                </strong>
+              </div>
+              <div className="rounded-xl border border-rose-500/15 bg-rose-500/5 p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Valor vendido
+                </span>
+                <strong className="mt-1 block text-xl text-rose-400">
+                  {periodTotals.soldValue.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xs">
+              <div className="flex flex-col gap-2 border-b border-slate-800 bg-slate-950/15 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-bold text-slate-100">
+                    Materiais comprados e vendidos
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {filteredPeriodMaterials.length} materiais entre{" "}
+                    {new Date(`${reportStartDate}T12:00:00`).toLocaleDateString(
+                      "pt-BR",
+                    )}{" "}
+                    e{" "}
+                    {new Date(`${reportEndDate}T12:00:00`).toLocaleDateString(
+                      "pt-BR",
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 font-mono text-xs text-slate-300">
+                  <Database className="h-3.5 w-3.5" />
+                  <span>Relatório gerencial</span>
+                </div>
+              </div>
+
+              {materialsReportQuery.isPending ? (
+                <div className="p-10 text-center text-xs text-slate-400">
+                  Consultando movimentações do período...
+                </div>
+              ) : materialsReportQuery.isError ? (
+                <div className="p-10 text-center">
+                  <p className="text-xs font-semibold text-rose-300">
+                    Não foi possível consultar o relatório de materiais.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void materialsReportQuery.refetch()}
+                    className="mt-3 rounded-lg bg-rose-400 px-3 py-2 text-[10px] font-bold uppercase text-slate-950"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-400">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/10 font-mono uppercase tracking-wider text-slate-500">
+                        <th className="px-4 py-3">Código</th>
+                        <th className="px-4 py-3">Material</th>
+                        <th className="px-4 py-3">Categoria</th>
+                        <th className="px-4 py-3 text-right">Comprado</th>
+                        <th className="px-4 py-3 text-right">Valor compra</th>
+                        <th className="px-4 py-3 text-right">Vendido</th>
+                        <th className="px-4 py-3 text-right">Valor venda</th>
+                        <th className="px-4 py-3 text-right">Saldo período</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {filteredPeriodMaterials.map((material) => {
+                        const balance =
+                          material.compras.peso - material.vendas.peso;
+                        return (
+                          <tr
+                            key={material.id}
+                            className="transition-colors hover:bg-slate-800/20"
+                          >
+                            <td className="px-4 py-3.5 font-mono font-bold">
+                              {material.id}
+                            </td>
+                            <td className="px-4 py-3.5 font-semibold text-slate-100">
+                              {material.nome}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {material.categoria.nome}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-400">
+                              +{material.compras.peso.toLocaleString("pt-BR")}{" "}
+                              kg
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              {material.compras.valor.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono font-bold text-rose-400">
+                              -{material.vendas.peso.toLocaleString("pt-BR")} kg
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              {material.vendas.valor.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </td>
+                            <td
+                              className={`px-4 py-3.5 text-right font-mono font-bold ${
+                                balance >= 0
+                                  ? "text-emerald-400"
+                                  : "text-rose-400"
+                              }`}
+                            >
+                              {balance > 0 ? "+" : ""}
+                              {balance.toLocaleString("pt-BR")} kg
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {!materialsReportQuery.isPending &&
+                !materialsReportQuery.isError &&
+                filteredPeriodMaterials.length === 0 && (
+                  <div className="p-10 text-center">
+                    <Package className="mx-auto mb-2 h-8 w-8 text-slate-700" />
+                    <p className="text-xs font-semibold text-slate-400">
+                      Nenhum material comprado ou vendido neste período.
+                    </p>
+                  </div>
+                )}
+            </div>
           </div>
         ) : activeSubTab === "statement" ? (
           /* TAB 2: Extrato de Material (Screen 3 equivalent) */

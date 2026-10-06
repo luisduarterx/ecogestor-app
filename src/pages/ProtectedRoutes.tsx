@@ -6,8 +6,7 @@ import { useEffect } from "react";
 export function ProtectedRoute() {
   const { setUser, logout } = useLoggedUser();
   const location = useLocation();
-  const token = localStorage.getItem("sid");
-  const session = useSession(Boolean(token));
+  const session = useSession();
   useEffect(() => {
     if (session.isSuccess) {
       setUser(session.data);
@@ -17,9 +16,6 @@ export function ProtectedRoute() {
       logout();
     }
   }, [session.isSuccess, session.isError, session.data, setUser, logout]);
-  if (!token) {
-    return <Navigate to={"/"} replace state={{ from: location.pathname }} />;
-  }
   if (session.isPending) {
     return <div>Carregando...</div>;
   }

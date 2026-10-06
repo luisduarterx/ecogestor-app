@@ -7,6 +7,7 @@ import {
   type CreateMaterialInput,
   type CreateFinancialAccountInput,
   type DashboardSummary,
+  type DashboardMaterialsReport,
   type FinalizeOrderInput,
   type FinancialAccountResponse,
   type FinancialCategoryResponse,
@@ -24,6 +25,7 @@ import {
   type InventoryMovementsResponse,
   type UserAuthenticated,
   type LoginReponse,
+  type SessionUserResponse,
   type MaterialResponse,
   type MaterialCategoryResponse,
   type UpdateMaterialCategoryInput,
@@ -54,44 +56,178 @@ import {
 import { api } from "./api";
 
 export const useLogin = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (credentials: { email: string; senha: string }) => {
       const { data } = await api.post<LoginReponse>("auth/signin", credentials);
       return data;
     },
+    onSuccess: ({ user }) => {
+      queryClient.setQueryData(["auth", "session"], user);
+    },
   });
 };
-export function useSession(enabled: boolean) {
+export function useSession() {
   return useQuery({
     queryKey: ["auth", "session"],
-    enabled,
     retry: false,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await api.post<UserAuthenticated>("auth/validate");
+      const { data } = await api.post<SessionUserResponse>("auth/validate");
 
-      return data;
+      return {
+        id: data.id,
+        nome: data.nome,
+        email: data.email,
+        cargoID: data.cargo.id,
+        permissoes: [],
+      } satisfies UserAuthenticated;
     },
   });
 }
-export function useDashboard(date: string) {
+export function useLogout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await api.post("auth/signout");
+    },
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["auth"] });
+    },
+  });
+}
+export function useDashboard(startDate: string, endDate = startDate) {
   return useQuery({
-    queryKey: ["dashboard", "resumo", date],
+    queryKey: ["dashboard", "resumo", startDate, endDate],
     queryFn: async () => {
       const { data } = await api.get<DashboardSummary>("/dashboard/resumo", {
         params: {
-          dataInicial: date,
-          dataFinal: date,
+          dataInicial: startDate,
+          dataFinal: endDate,
         },
       });
       return {
         totalStockKg: data.estoque.peso_total,
+        negativeMaterialsCount: data.estoque.materiais_negativos,
         totalPurchasedAmount: data.compras.valor_total,
         purchaseInvoicesCount: data.compras.quantidade_pedidos,
         totalExpenses: data.despesas_operacionais.valor_total,
+        paidExpenses: data.despesas_operacionais.valor_pago,
+        pendingExpenses: data.despesas_operacionais.valor_pendente,
+        expensesCount: data.despesas_operacionais.quantidade_lancamentos,
         totalBankBalance: data.contas.saldo_total,
         bankAccountsCount: data.contas.quantidade_contas,
+        generatedAt: data.gerado_em,
       };
+    },
+  });
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function numeric(...values: unknown[]) {
+  const value = values.find(
+    (candidate) => candidate !== undefined && candidate !== null,
+  );
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Relatório consolidado de materiais comprados e vendidos por período. */
+export function useDashboardMaterials(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: ["dashboard", "materiais", startDate, endDate],
+    enabled: Boolean(startDate && endDate),
+    queryFn: async () => {
+      const { data } = await api.get<unknown>("/dashboard/materiais", {
+        params: { dataInicial: startDate, dataFinal: endDate },
+      });
+      const response = record(data);
+      const rawMaterials = Array.isArray(response.materiais)
+        ? response.materiais
+        : Array.isArray(response.dados)
+          ? response.dados
+          : Array.isArray(data)
+            ? data
+            : [];
+
+      return {
+        periodo: { dataInicial: startDate, dataFinal: endDate },
+        materiais: rawMaterials.map((raw, index) => {
+          const item = record(raw);
+          const material = record(item.material);
+          const categoria = record(item.categoria ?? material.categoria);
+          const compras = record(item.compras ?? item.compra);
+          const vendas = record(item.vendas ?? item.venda);
+          return {
+            id: numeric(
+              item.materialID,
+              item.material_id,
+              material.id,
+              item.id,
+              index,
+            ),
+            nome: String(
+              item.nome ?? item.material_nome ?? material.nome ?? "Material",
+            ),
+            categoria: {
+              id:
+                categoria.id === undefined
+                  ? null
+                  : numeric(categoria.id, item.categoriaID),
+              nome: String(
+                categoria.nome ?? item.categoria_nome ?? "Sem categoria",
+              ),
+            },
+            compras: {
+              peso: numeric(
+                compras.peso,
+                compras.peso_total,
+                item.peso_comprado,
+                item.total_comprado,
+                item.quantidade_comprada,
+              ),
+              valor: numeric(
+                compras.valor,
+                compras.valor_total,
+                item.valor_comprado,
+                item.total_valor_comprado,
+              ),
+              pedidos: numeric(
+                compras.pedidos,
+                compras.quantidade_pedidos,
+                item.compras_quantidade,
+              ),
+            },
+            vendas: {
+              peso: numeric(
+                vendas.peso,
+                vendas.peso_total,
+                item.peso_vendido,
+                item.total_vendido,
+                item.quantidade_vendida,
+              ),
+              valor: numeric(
+                vendas.valor,
+                vendas.valor_total,
+                item.valor_vendido,
+                item.total_valor_vendido,
+              ),
+              pedidos: numeric(
+                vendas.pedidos,
+                vendas.quantidade_pedidos,
+                item.vendas_quantidade,
+              ),
+            },
+          };
+        }),
+      } satisfies DashboardMaterialsReport;
     },
   });
 }
