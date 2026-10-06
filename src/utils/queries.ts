@@ -25,6 +25,7 @@ import {
   type InventoryMovementsResponse,
   type UserAuthenticated,
   type LoginReponse,
+  type SessionUserResponse,
   type MaterialResponse,
   type MaterialCategoryResponse,
   type UpdateMaterialCategoryInput,
@@ -55,23 +56,45 @@ import {
 import { api } from "./api";
 
 export const useLogin = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (credentials: { email: string; senha: string }) => {
       const { data } = await api.post<LoginReponse>("auth/signin", credentials);
       return data;
     },
+    onSuccess: ({ user }) => {
+      queryClient.setQueryData(["auth", "session"], user);
+    },
   });
 };
-export function useSession(enabled: boolean) {
+export function useSession() {
   return useQuery({
     queryKey: ["auth", "session"],
-    enabled,
     retry: false,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await api.post<UserAuthenticated>("auth/validate");
+      const { data } = await api.post<SessionUserResponse>("auth/validate");
 
-      return data;
+      return {
+        id: data.id,
+        nome: data.nome,
+        email: data.email,
+        cargoID: data.cargo.id,
+        permissoes: [],
+      } satisfies UserAuthenticated;
+    },
+  });
+}
+export function useLogout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await api.post("auth/signout");
+    },
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["auth"] });
     },
   });
 }

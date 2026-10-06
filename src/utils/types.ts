@@ -7,7 +7,16 @@ export type UserAuthenticated = {
 };
 export type LoginReponse = {
   user: UserAuthenticated;
-  token: string;
+  expiresAt: string;
+};
+export type SessionUserResponse = {
+  id: number;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  cargo: {
+    id: number;
+  };
 };
 export type ApiError = {
   nome: string;

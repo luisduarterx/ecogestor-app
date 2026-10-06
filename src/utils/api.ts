@@ -3,24 +3,13 @@ import type { ApiError } from "./types";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL?.trim() || "http://localhost:4000/v1/",
+  withCredentials: true,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
   },
 });
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("sid");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
 api.interceptors.response.use(
   (response) => response,
   (error) => {
