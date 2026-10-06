@@ -11,9 +11,9 @@ Antes de alterar qualquer arquivo:
 3. Se houver mudanças locais, preserve-as. Não descarte, sobrescreva, restaure ou inclua mudanças que não pertençam à tarefa atual.
 4. Nunca implemente diretamente na `main`.
 5. Crie uma branch nova e exclusiva para cada correção, funcionalidade ou alteração de documentação. Use nomes descritivos com o prefixo `codex/`, por exemplo:
-   - `codex/fix-dashboard-invalid-date`
-   - `codex/add-inventory-export`
-   - `codex/update-ai-instructions`
+   - `codex/corrigir-data-invalida-dashboard`
+   - `codex/adicionar-exportacao-estoque`
+   - `codex/atualizar-instrucoes-ia`
 6. A branch deve nascer da `main` atualizada e limpa. Se isso não for possível por causa de alterações locais, isole primeiro o trabalho existente em sua própria branch e só então inicie a nova tarefa.
 7. Não misture alterações independentes na mesma branch ou commit.
 
@@ -22,6 +22,21 @@ Antes de entregar:
 1. Confira novamente `git status --short --branch` e revise `git diff`.
 2. Informe ao usuário a branch utilizada, os arquivos alterados e as validações executadas.
 3. Não faça push, merge, rebase, force-push ou abra pull request sem solicitação explícita.
+
+## Idioma obrigatório
+
+O projeto é desenvolvido em português do Brasil. Todas as futuras atualizações devem usar termos nesse idioma, incluindo:
+
+- textos e mensagens exibidos na interface;
+- mensagens de erro, validação, carregamento e estado vazio;
+- documentação, comentários e instruções internas;
+- nomes de branches, títulos e descrições de pull requests;
+- mensagens de commit;
+- nomes de componentes, funções, variáveis e tipos criados para conceitos do domínio do EcoGestor.
+
+Use ortografia, acentuação e concordância do português do Brasil. Evite misturar português e inglês quando houver um termo técnico claro e natural em português.
+
+Termos exigidos por bibliotecas, frameworks, protocolos, APIs, contratos externos e padrões da plataforma devem ser preservados. Não traduza nomes já definidos por essas integrações, propriedades de respostas da API, comandos, caminhos existentes ou identificadores cuja alteração possa quebrar compatibilidade. Ao modificar código legado, não renomeie identificadores em inglês fora do escopo apenas para traduzi-los.
 
 ## Visão geral do projeto
 
