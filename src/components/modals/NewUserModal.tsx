@@ -23,6 +23,8 @@ export default function NewUserModal({
   const [name, setName] = useState(user?.nome ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState(user?.telefone ?? "");
+  const [senha, setSenha] = useState("");
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
   const [roleID, setRoleID] = useState(
     String(user?.cargoID ?? roles[0]?.id ?? ""),
   );
@@ -36,15 +38,34 @@ export default function NewUserModal({
       setError("Preencha nome, e-mail e cargo.");
       return;
     }
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!user) {
+      if (senha.length < 10) {
+        setError("A senha deve ter pelo menos 10 caracteres.");
+        return;
+      }
+      if (new TextEncoder().encode(senha).length > 72) {
+        setError("A senha deve ter no máximo 72 bytes.");
+        return;
+      }
+      if (senha.toLowerCase() === emailNormalizado) {
+        setError("A senha deve ser diferente do e-mail.");
+        return;
+      }
+      if (senha !== confirmacaoSenha) {
+        setError("A confirmação da senha não corresponde à senha informada.");
+        return;
+      }
+    }
     const input = {
       nome: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: emailNormalizado,
       telefone: phone.trim() || undefined,
       cargoID: Number(roleID),
     };
     try {
       if (user) await updateUser.mutateAsync(input);
-      else await createUser.mutateAsync(input);
+      else await createUser.mutateAsync({ ...input, senha });
       onClose();
     } catch (caught) {
       setError(
@@ -143,12 +164,39 @@ export default function NewUserModal({
                   ))}
                 </select>
               </label>
+              {!user && (
+                <>
+                  <label className="text-xs font-bold text-slate-300">
+                    Senha de Acesso *
+                    <input
+                      required
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={10}
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-300">
+                    Confirmar Senha *
+                    <input
+                      required
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={10}
+                      value={confirmacaoSenha}
+                      onChange={(e) => setConfirmacaoSenha(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </label>
+                </>
+              )}
             </div>
             {!user && (
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-[11px] leading-5 text-slate-400">
-                O novo usuário receberá a senha padrão configurada na API.
-                Nenhuma permissão é atribuída diretamente: todas são herdadas do
-                cargo selecionado.
+                Crie uma senha com pelo menos 10 caracteres. O acesso e as
+                permissões deste usuário serão definidos pelo cargo selecionado.
               </div>
             )}
           </div>

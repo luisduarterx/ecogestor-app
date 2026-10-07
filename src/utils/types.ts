@@ -619,11 +619,14 @@ export type UserManagementResponse = {
 export type UserManagementDetail = Omit<UserManagementResponse, "cargoID"> & {
   cargo: { id: number; nome: string };
 };
-export type SaveUserInput = {
+export type AtualizarUsuarioInput = {
   nome: string;
   email: string;
   telefone?: string;
   cargoID: number;
+};
+export type CriarUsuarioInput = AtualizarUsuarioInput & {
+  senha: string;
 };
 export type SaveRoleInput = {
   nome: string;

@@ -48,7 +48,8 @@ import {
   type RoleResponse,
   type RolesResponse,
   type SaveRoleInput,
-  type SaveUserInput,
+  type AtualizarUsuarioInput,
+  type CriarUsuarioInput,
   type UserManagementDetail,
   type UserManagementResponse,
   type UpdatedMaterialResponse,
@@ -1102,7 +1103,7 @@ export function useUser(userID?: number) {
 
 export function useCreateUser() {
   const queryClient = useQueryClient();
-  return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
+  return useMutation<UserManagementDetail, ApiError, CriarUsuarioInput>({
     mutationFn: async (input) => (await api.post("/usuarios", input)).data,
     onSuccess: async () =>
       queryClient.invalidateQueries({ queryKey: ["usuarios"] }),
@@ -1111,7 +1112,7 @@ export function useCreateUser() {
 
 export function useUpdateUser(userID?: number) {
   const queryClient = useQueryClient();
-  return useMutation<UserManagementDetail, ApiError, SaveUserInput>({
+  return useMutation<UserManagementDetail, ApiError, AtualizarUsuarioInput>({
     mutationFn: async (input) =>
       (await api.patch(`/usuarios/${userID}`, input)).data,
     onSuccess: async () => {
