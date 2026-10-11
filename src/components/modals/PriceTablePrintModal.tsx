@@ -60,7 +60,6 @@ function A4PriceTable({
   tableName,
   prices,
   showSellPrice,
-  showTons,
   emittedAt,
   template,
   elementId,
@@ -68,7 +67,6 @@ function A4PriceTable({
   tableName: string;
   prices: PrintablePrice[];
   showSellPrice: boolean;
-  showTons: boolean;
   emittedAt: string;
   template: PriceTableDocumentTemplate;
   elementId: string;
@@ -182,11 +180,6 @@ function A4PriceTable({
             <th style={{ padding: "8px 4px", textAlign: "right" }}>
               Compra/kg
             </th>
-            {showTons && (
-              <th style={{ padding: "8px 4px", textAlign: "right" }}>
-                Compra/ton
-              </th>
-            )}
             {showSellPrice && (
               <th style={{ padding: "8px 4px", textAlign: "right" }}>
                 Venda/kg
@@ -226,17 +219,6 @@ function A4PriceTable({
               >
                 {money.format(item.buyPrice)}
               </td>
-              {showTons && (
-                <td
-                  style={{
-                    padding: "9px 4px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                  }}
-                >
-                  {money.format(item.buyPrice * 1000)}
-                </td>
-              )}
               {showSellPrice && (
                 <td
                   style={{
@@ -276,7 +258,6 @@ function CouponPriceTable({
   tableName,
   prices,
   showSellPrice,
-  showTons,
   emittedAt,
   template,
   elementId,
@@ -284,7 +265,6 @@ function CouponPriceTable({
   tableName: string;
   prices: PrintablePrice[];
   showSellPrice: boolean;
-  showTons: boolean;
   emittedAt: string;
   template: PriceTableDocumentTemplate;
   elementId: string;
@@ -389,20 +369,6 @@ function CouponPriceTable({
               {showSellPrice ? ` / ${money.format(item.sellPrice)}` : ""}
             </span>
           </div>
-          {showTons && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingLeft: "8px",
-                color: "#475569",
-                fontSize: "9px",
-              }}
-            >
-              <span>Preço por tonelada</span>
-              <span>{money.format(item.buyPrice * 1000)}/t</span>
-            </div>
-          )}
         </div>
       ))}
       <div
@@ -433,7 +399,6 @@ export default function PriceTablePrintModal({
   const tableQuery = useTable(tableId);
   const [format, setFormat] = useState<DocumentFormat>("a4");
   const [showSellPrice, setShowSellPrice] = useState(false);
-  const [showTons, setShowTons] = useState(true);
   const [copied, setCopied] = useState(false);
   const documentId = `price-table-${useId().replaceAll(":", "")}`;
   const emittedAt = useMemo(
@@ -486,7 +451,6 @@ export default function PriceTablePrintModal({
         .filter((item) => item.category === category)
         .forEach((item) => {
           let line = `• *${item.name}*: ${money.format(item.buyPrice)}/kg`;
-          if (showTons) line += ` (${money.format(item.buyPrice * 1000)}/t)`;
           if (showSellPrice)
             line += ` | Venda: ${money.format(item.sellPrice)}/kg`;
           lines.push(line);
@@ -616,12 +580,6 @@ export default function PriceTablePrintModal({
                 onChange={setShowSellPrice}
                 icon={showSellPrice ? Eye : EyeOff}
               />
-              <Toggle
-                label="Mostrar preço por tonelada"
-                checked={showTons}
-                onChange={setShowTons}
-                icon={Scale}
-              />
               <p className="text-[10px] leading-4 text-slate-500">
                 Por segurança comercial, o preço de venda começa oculto.
               </p>
@@ -652,7 +610,6 @@ export default function PriceTablePrintModal({
                   tableName={tableName}
                   prices={prices}
                   showSellPrice={showSellPrice}
-                  showTons={showTons}
                   emittedAt={emittedAt}
                   template={template}
                   elementId={documentId}
@@ -665,7 +622,6 @@ export default function PriceTablePrintModal({
                   tableName={tableName}
                   prices={prices}
                   showSellPrice={showSellPrice}
-                  showTons={showTons}
                   emittedAt={emittedAt}
                   template={template}
                   elementId={documentId}
