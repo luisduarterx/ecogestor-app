@@ -21,7 +21,7 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
   const [value, setValue] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [method, setMethod] = useState("Pix");
+
   const [status, setStatus] = useState<"pago" | "pendente">("pago");
   const accountsQuery = useFinancialAccounts();
   const categoriesQuery = useFinancialCategories("DESPESA");
@@ -45,7 +45,7 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
     try {
       await createEntry.mutateAsync({
         valor: Number(value),
-        descricao: `${description.trim()} — ${method}`.slice(0, 250),
+        descricao: `${description.trim()}`,
         titulo: description.trim().slice(0, 100),
         tipo: "PAGAR",
         categoria_id: Number(category),
@@ -109,8 +109,25 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
               className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-rose-400"
             />
           </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Categoria do Gasto
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-rose-400"
+            >
+              <option value="">Selecione...</option>
+              {(categoriesQuery.data ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nome}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Value & Category */}
+          {/* Value & Bank Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -128,27 +145,6 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Categoria do Gasto
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-rose-400"
-              >
-                <option value="">Selecione...</option>
-                {(categoriesQuery.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Bank Selection & Method */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Conta para Débito
               </label>
               <select
@@ -162,21 +158,6 @@ export default function ExpenseModal({ setIsOpen }: ExpenseModalProps) {
                     {b.nome} (R$ {b.saldo_atual.toFixed(2)})
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Meio de Pagamento
-              </label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-rose-400"
-              >
-                <option value="Pix">Pix imediato</option>
-                <option value="Dinheiro">Dinheiro Físico</option>
-                <option value="Boleto Bancário">Boleto a vencer</option>
-                <option value="Cartão de Débito">Cartão de Débito</option>
               </select>
             </div>
           </div>

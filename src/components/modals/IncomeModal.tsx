@@ -24,7 +24,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
   const [value, setValue] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [method, setMethod] = useState("Pix");
+
   const [status, setStatus] = useState<"recebido" | "pendente">("recebido");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -45,7 +45,7 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
     try {
       await createEntry.mutateAsync({
         valor: Number(value),
-        descricao: `${description.trim()} — ${method}`.slice(0, 250),
+        descricao: `${description.trim()}`,
         titulo: description.trim().slice(0, 100),
         tipo: "RECEBER",
         categoria_id: Number(category),
@@ -108,6 +108,23 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
               className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
             />
           </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Categoria da Entrada
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            >
+              <option value="">Selecione...</option>
+              {(categoriesQuery.data ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nome}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -126,26 +143,6 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Categoria da Entrada
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              >
-                <option value="">Selecione...</option>
-                {(categoriesQuery.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Conta para Crédito
               </label>
               <select
@@ -160,23 +157,6 @@ export default function IncomeModal({ setIsOpen }: IncomeModalProps) {
                     {b.nome} (R$ {b.saldo_atual.toFixed(2)})
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Meio de Recebimento
-              </label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              >
-                <option value="Pix">Pix imediato</option>
-                <option value="Dinheiro">Dinheiro Físico</option>
-                <option value="Boleto Bancário">Boleto Bancário</option>
-                <option value="Transferência Bancária">
-                  Transferência Eletrônica
-                </option>
               </select>
             </div>
           </div>
