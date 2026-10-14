@@ -913,5 +913,18 @@ export type EventoNotaFiscal = {
   usuario: UsuarioResumo | null;
   criadoEm: string;
 };
-/** Arquivos da nota disponíveis para download. */
-export type ArquivoNotaFiscal = "danfe" | "xml" | "xml-cancelamento";
+export type CartaCorrecao = {
+  id: number;
+  sequencia: number;
+  correcao: string;
+  statusSefaz: string | null;
+  mensagemSefaz: string | null;
+  criadoPor: UsuarioResumo;
+  criadoEm: string;
+};
+/** Arquivos da nota disponíveis para download, relativos à rota da nota. */
+export type ArquivoNotaFiscal =
+  | "danfe"
+  | "xml"
+  | "xml-cancelamento"
+  | `cartas-correcao/${number}/${"pdf" | "xml"}`;

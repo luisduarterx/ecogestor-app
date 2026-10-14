@@ -70,6 +70,7 @@ import {
   type NotaFiscalResumo,
   type Paginado,
   type ArquivoNotaFiscal,
+  type CartaCorrecao,
   type EventoNotaFiscal,
 } from "./types";
 import { api } from "./api";
@@ -1624,6 +1625,63 @@ export function useEventosNotaFiscal(notaID: number, enabled = true) {
     queryFn: async () =>
       (await api.get<EventoNotaFiscal[]>(`/fiscal/notas/${notaID}/eventos`))
         .data,
+  });
+}
+
+export function useCancelarNotaFiscal(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, string>({
+    mutationFn: async (justificativa) =>
+      (
+        await api.post<NotaFiscal>(
+          `/fiscal/notas/${notaID}/cancelar`,
+          { justificativa },
+          { timeout: TEMPO_LIMITE_FOCUS },
+        )
+      ).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+    // A recusa da SEFAZ fica registrada no histórico da nota.
+    onError: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["fiscal", "eventos", notaID],
+      }),
+  });
+}
+
+export function useCartasCorrecao(notaID: number, enabled = true) {
+  return useQuery<CartaCorrecao[], ApiError>({
+    queryKey: ["fiscal", "cartas", notaID],
+    enabled,
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () =>
+      (
+        await api.get<CartaCorrecao[]>(
+          `/fiscal/notas/${notaID}/cartas-correcao`,
+        )
+      ).data,
+  });
+}
+
+export function useRegistrarCartaCorrecao(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<CartaCorrecao, ApiError, string>({
+    mutationFn: async (correcao) =>
+      (
+        await api.post<CartaCorrecao>(
+          `/fiscal/notas/${notaID}/cartas-correcao`,
+          { correcao },
+          { timeout: TEMPO_LIMITE_FOCUS },
+        )
+      ).data,
+    // A nota traz a quantidade de cartas, e o histórico ganha um evento.
+    onSettled: () =>
+      Promise.all(
+        [
+          ["fiscal", "cartas", notaID],
+          ["fiscal", "nota", notaID],
+          ["fiscal", "eventos", notaID],
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      ),
   });
 }
 

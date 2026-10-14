@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router";
 import BuscaRegistro from "../../components/fiscal/BuscaRegistro";
+import CartasCorrecao from "../../components/fiscal/CartasCorrecao";
 import HistoricoNota from "../../components/fiscal/HistoricoNota";
 import PainelEmissao from "../../components/fiscal/PainelEmissao";
 import SeloStatusNota from "../../components/fiscal/SeloStatusNota";
@@ -445,7 +446,11 @@ export default function EditorNotaFiscal({
         )}
       </div>
 
-      <PainelEmissao nota={nota} onAviso={onAviso} />
+      <PainelEmissao
+        nota={nota}
+        onAviso={onAviso}
+        onRecarregar={onRecarregar}
+      />
 
       {pendencias.length > 0 && (
         <div
@@ -794,6 +799,8 @@ export default function EditorNotaFiscal({
           </label>
         </Secao>
       </fieldset>
+
+      <CartasCorrecao nota={nota} onAviso={onAviso} />
 
       {nota.status !== "RASCUNHO" && <HistoricoNota notaID={nota.id} />}
 
