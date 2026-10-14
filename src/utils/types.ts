@@ -182,6 +182,13 @@ export type InventoryMovement = {
     nome: string;
     categoria: { id: number; nome: string };
   };
+  /** Cliente/fornecedor do pedido da movimentação; null em ajustes e conversões. */
+  registro: {
+    id: number;
+    nome: string;
+    /** CPF (pessoa física) ou CNPJ (pessoa jurídica). */
+    documento: string | null;
+  } | null;
 };
 
 export type InventoryBalancesResponse = {

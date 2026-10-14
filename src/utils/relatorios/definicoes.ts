@@ -335,6 +335,7 @@ export function criarRelatoriosEstoque(opcoes: {
               { titulo: "Data", tipo: "data" },
               { titulo: "Material", tipo: "texto" },
               { titulo: "Tipo", tipo: "texto" },
+              { titulo: "Cliente/Fornecedor", tipo: "texto" },
               { titulo: "Entrada (kg)", tipo: "peso", totalizar: true },
               { titulo: "Saída (kg)", tipo: "peso", totalizar: true },
               { titulo: "Origem", tipo: "texto" },
@@ -346,6 +347,7 @@ export function criarRelatoriosEstoque(opcoes: {
               item.material.nome,
               ROTULOS_MOVIMENTACAO_ESTOQUE[item.tipoMovimentacao] ??
                 item.tipoMovimentacao,
+              item.registro?.nome ?? "—",
               item.direcao === "ENTRADA" ? item.quantidade : null,
               item.direcao === "SAIDA" ? item.quantidade : null,
               item.origemID
