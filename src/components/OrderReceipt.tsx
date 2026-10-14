@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LARGURA_A4_PAISAGEM_MM,
   getReceiptCss,
@@ -44,34 +44,7 @@ export default function OrderReceipt({
       className="receipt bg-white p-4 font-mono text-[10px] leading-tight text-black shadow-sm"
       style={{ width: `${template.paperWidthMm}mm` }}
     >
-      <header className="receipt-center receipt-header">
-        {template.logoUrl && (
-          <img
-            src={template.logoUrl}
-            alt=""
-            className="receipt-logo"
-            onError={(event) => {
-              event.currentTarget.style.display = "none";
-            }}
-          />
-        )}
-        <div className="receipt-header-data">
-          {template.companyName && (
-            <h1 className="receipt-company">{template.companyName}</h1>
-          )}
-          {template.legalName && <div>{template.legalName}</div>}
-          {template.document && (
-            <div>
-              {template.documentLabel ?? "CNPJ/CPF"}: {template.document}
-            </div>
-          )}
-          {template.address && <div>{template.address}</div>}
-          {template.phone && <div>Telefone: {template.phone}</div>}
-          {template.headerLines?.map((line, index) => (
-            <div key={`${index}-${line}`}>{line}</div>
-          ))}
-        </div>
-      </header>
+      <CabecalhoCupom template={template} />
 
       <div className="receipt-separator" />
       <h2 className="receipt-title">
@@ -193,33 +166,78 @@ export default function OrderReceipt({
         <div className="receipt-code">
           PED-{String(data.id).padStart(8, "0")}
         </div>
-        {/* Assinatura fixa do sistema: não depende das configurações. */}
-        <div className="receipt-system">
-          <div className="receipt-strong">ECOGESTOR</div>
-          <div>Sistema de Gerenciamento de Reciclagens</div>
-        </div>
+        <AssinaturaEcoGestor />
       </footer>
     </article>
   );
 }
 
-/**
- * Exibe o cupom reduzido para caber na largura disponível, mantendo as
- * proporções da impressão. A marcação impressa continua sendo a do cupom.
- */
-export function CupomAjustado({
-  data,
+/** Cabeçalho com logo e dados da empresa, compartilhado pelos cupons. */
+export function CabecalhoCupom({
   template,
-  receiptId,
 }: {
-  data: OrderReceiptData;
   template: OrderReceiptTemplate;
-  receiptId: string;
+}) {
+  return (
+    <header className="receipt-center receipt-header">
+      {template.logoUrl && (
+        <img
+          src={template.logoUrl}
+          alt=""
+          className="receipt-logo"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      )}
+      <div className="receipt-header-data">
+        {template.companyName && (
+          <h1 className="receipt-company">{template.companyName}</h1>
+        )}
+        {template.legalName && <div>{template.legalName}</div>}
+        {template.document && (
+          <div>
+            {template.documentLabel ?? "CNPJ/CPF"}: {template.document}
+          </div>
+        )}
+        {template.address && <div>{template.address}</div>}
+        {template.phone && <div>Telefone: {template.phone}</div>}
+        {template.headerLines?.map((line, index) => (
+          <div key={`${index}-${line}`}>{line}</div>
+        ))}
+      </div>
+    </header>
+  );
+}
+
+/** Assinatura fixa do sistema: não depende das configurações. */
+export function AssinaturaEcoGestor() {
+  return (
+    <div className="receipt-system">
+      <div className="receipt-strong">ECOGESTOR</div>
+      <div>Sistema de Gerenciamento de Reciclagens</div>
+    </div>
+  );
+}
+
+/**
+ * Exibe um documento reduzido para caber na largura disponível, mantendo as
+ * proporções da impressão. A marcação impressa continua a mesma.
+ */
+export function AjusteDeLargura({
+  larguraMm,
+  estilos,
+  children,
+}: {
+  larguraMm: number;
+  estilos: string;
+  children: ReactNode;
 }) {
   const areaRef = useRef<HTMLDivElement>(null);
   const [larguraArea, setLarguraArea] = useState(0);
-  const larguraCupom = template.paperWidthMm * PIXELS_POR_MM;
-  const escala = larguraArea > 0 ? Math.min(1, larguraArea / larguraCupom) : 1;
+  const larguraDocumento = larguraMm * PIXELS_POR_MM;
+  const escala =
+    larguraArea > 0 ? Math.min(1, larguraArea / larguraDocumento) : 1;
 
   useEffect(() => {
     const area = areaRef.current;
@@ -233,10 +251,28 @@ export function CupomAjustado({
 
   return (
     <div ref={areaRef} className="flex w-full justify-center overflow-hidden">
-      <style>{getReceiptCss(template.paperWidthMm)}</style>
-      <div style={{ zoom: escala }}>
-        <OrderReceipt data={data} template={template} receiptId={receiptId} />
-      </div>
+      <style>{estilos}</style>
+      <div style={{ zoom: escala }}>{children}</div>
     </div>
+  );
+}
+
+/** Cupom de pedido reduzido para caber na largura disponível. */
+export function CupomAjustado({
+  data,
+  template,
+  receiptId,
+}: {
+  data: OrderReceiptData;
+  template: OrderReceiptTemplate;
+  receiptId: string;
+}) {
+  return (
+    <AjusteDeLargura
+      larguraMm={template.paperWidthMm}
+      estilos={getReceiptCss(template.paperWidthMm)}
+    >
+      <OrderReceipt data={data} template={template} receiptId={receiptId} />
+    </AjusteDeLargura>
   );
 }
