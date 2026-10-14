@@ -893,3 +893,25 @@ export type ItemNotaFiscalInput = {
   quantidade: number;
   valorUnitario: number;
 } & Partial<TributacaoItemNota>;
+export type TipoEventoNotaFiscal =
+  | "EMISSAO_SOLICITADA"
+  | "FALHA_COMUNICACAO"
+  | "STATUS_ATUALIZADO"
+  | "CANCELAMENTO_SOLICITADO"
+  | "CANCELAMENTO_RECUSADO"
+  | "CARTA_CORRECAO_REGISTRADA"
+  | "CARTA_CORRECAO_RECUSADA";
+export type OrigemEventoNotaFiscal = "USUARIO" | "WEBHOOK" | "SINCRONIZACAO";
+export type EventoNotaFiscal = {
+  id: number;
+  tipo: TipoEventoNotaFiscal;
+  origem: OrigemEventoNotaFiscal;
+  statusAnterior: StatusNotaFiscal | null;
+  statusNovo: StatusNotaFiscal | null;
+  mensagem: string | null;
+  respostaFocus: unknown;
+  usuario: UsuarioResumo | null;
+  criadoEm: string;
+};
+/** Arquivos da nota disponíveis para download. */
+export type ArquivoNotaFiscal = "danfe" | "xml" | "xml-cancelamento";

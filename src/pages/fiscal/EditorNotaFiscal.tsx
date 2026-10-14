@@ -5,10 +5,11 @@ import {
   Building2,
   FileText,
   Layers,
+  ListChecks,
   Loader2,
-  Lock,
   RotateCcw,
   Save,
+  Send,
   Trash2,
   Truck,
   type LucideIcon,
@@ -16,6 +17,8 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router";
 import BuscaRegistro from "../../components/fiscal/BuscaRegistro";
+import HistoricoNota from "../../components/fiscal/HistoricoNota";
+import PainelEmissao from "../../components/fiscal/PainelEmissao";
 import SeloStatusNota from "../../components/fiscal/SeloStatusNota";
 import {
   INDICADORES_IE,
@@ -26,16 +29,21 @@ import {
   formatarCpfCnpj,
   formatarDataHoraFiscal,
   formatarMoedaFiscal,
+  formatarNumeroNota,
+  itemDaPendencia,
   mensagemErroFiscal,
   notaEditavel,
+  separarPendencias,
 } from "../../utils/fiscal";
 import {
   useAtualizarNotaFiscal,
   useConfiguracaoFiscal,
+  useEmitirNotaFiscal,
   useExcluirNotaFiscal,
   useMaterials,
   useNaturezasOperacao,
   useSalvarItensNotaFiscal,
+  useStatusFiscal,
 } from "../../utils/queries";
 import type {
   ApiError,
@@ -65,7 +73,10 @@ const CLASSE_CAMPO =
   "mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 px-3.5 py-2.5 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none disabled:opacity-60";
 
 type Confirmacao =
-  { tipo: "natureza"; naturezaID: number | null } | { tipo: "excluir" } | null;
+  | { tipo: "natureza"; naturezaID: number | null }
+  | { tipo: "excluir" }
+  | { tipo: "emitir" }
+  | null;
 
 interface EditorNotaFiscalProps {
   nota: NotaFiscal;
@@ -85,6 +96,8 @@ export default function EditorNotaFiscal({
   const atualizar = useAtualizarNotaFiscal(nota.id);
   const salvarItens = useSalvarItensNotaFiscal(nota.id);
   const excluir = useExcluirNotaFiscal();
+  const emitir = useEmitirNotaFiscal(nota.id);
+  const statusQuery = useStatusFiscal();
 
   const [formulario, setFormulario] = useState<FormularioCabecalho>(() =>
     cabecalhoDaNota(nota),
@@ -94,6 +107,7 @@ export default function EditorNotaFiscal({
   const [erroEnvio, setErroEnvio] = useState("");
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
   const [salvando, setSalvando] = useState(false);
+  const [pendencias, setPendencias] = useState<string[]>([]);
 
   const editavel = notaEditavel(nota.status);
   const materiaisAtivos = useMemo(
@@ -103,7 +117,7 @@ export default function EditorNotaFiscal({
   const alteracoes = alteracoesCabecalho(formulario, nota);
   const itensSujos = itensAlterados(linhas, nota);
   const sujo = Object.keys(alteracoes).length > 0 || itensSujos;
-  const ocupado = salvando || excluir.isPending;
+  const ocupado = salvando || excluir.isPending || emitir.isPending;
   const { destinatario, transportadora, veiculo } = formulario;
   const travado = consumidorFinalTravado(destinatario.indicadorIE);
   const transporteEmSemFrete =
@@ -135,6 +149,20 @@ export default function EditorNotaFiscal({
     setErros(null);
   }
 
+  /** Marca na grade os itens citados nas pendências da emissão. */
+  function errosDosItens(lista: string[], salva: NotaFiscal) {
+    const itens: Record<string, string> = {};
+    const linhasSalvas = linhasDaNota(salva);
+    for (const pendencia of lista) {
+      const numero = itemDaPendencia(pendencia);
+      const linha = linhasSalvas.find(
+        (atual) => atual.original?.numeroItem === numero,
+      );
+      if (linha && !itens[linha.chave]) itens[linha.chave] = pendencia;
+    }
+    return itens;
+  }
+
   function alterarBloco<
     B extends "destinatario" | "transportadora" | "veiculo",
   >(bloco: B, campo: keyof FormularioCabecalho[B], valor: string) {
@@ -154,6 +182,7 @@ export default function EditorNotaFiscal({
   /**
    * Salva os itens alterados e o cabeçalho, junto com uma ação opcional
    * (trocar natureza, escolher Registro ou transportadora).
+   * Retorna a nota salva, ou null se não foi possível salvar.
    */
   async function salvar(
     acao: AtualizarNotaFiscalInput = {},
@@ -163,10 +192,11 @@ export default function EditorNotaFiscal({
     if (possuiErros(validacao)) {
       setErros(validacao);
       setErroEnvio("Corrija os campos indicados antes de salvar.");
-      return;
+      return null;
     }
     setErros(null);
     setErroEnvio("");
+    setPendencias([]);
     setSalvando(true);
     try {
       let salva = nota;
@@ -182,6 +212,7 @@ export default function EditorNotaFiscal({
       }
       reiniciar(salva);
       onAviso("Nota salva.");
+      return salva;
     } catch (caught) {
       const erro = caught as ApiError;
       if (erro.statusCode === 409) onRecarregar();
@@ -191,8 +222,45 @@ export default function EditorNotaFiscal({
           "Não foi possível salvar a nota. Nada foi alterado nos itens.",
         ),
       );
+      return null;
     } finally {
       setSalvando(false);
+    }
+  }
+
+  /** Salva as alterações pendentes e envia a nota para a SEFAZ. */
+  async function emitirNota() {
+    setConfirmacao(null);
+    const salva = sujo ? await salvar() : nota;
+    if (!salva) return;
+    setErroEnvio("");
+    setPendencias([]);
+    try {
+      const emitida = await emitir.mutateAsync();
+      reiniciar(emitida);
+      if (emitida.status === "PROCESSANDO")
+        onAviso("Nota enviada. Aguardando a SEFAZ...");
+      else if (emitida.status === "AUTORIZADA")
+        onAviso("Nota autorizada pela SEFAZ.");
+      else if (emitida.status === "REJEITADA")
+        setErroEnvio(
+          "A nota foi recusada antes de chegar à SEFAZ. Veja o motivo acima.",
+        );
+    } catch (caught) {
+      const erro = caught as ApiError;
+      const lista = separarPendencias(erro.mensagem);
+      if (lista) {
+        setPendencias(lista);
+        setErros({ cabecalho: [], itens: errosDosItens(lista, salva) });
+        return;
+      }
+      // 409: já emitida ou status mudou; 500/rede: o envio pode ter ocorrido.
+      if (erro.statusCode === 409 || erro.statusCode >= 500) onRecarregar();
+      setErroEnvio(
+        erro.statusCode === 403
+          ? "A emissão de notas não está configurada para esta empresa. Contate o suporte do EcoGestor."
+          : mensagemErroFiscal(erro, "Não foi possível emitir a nota."),
+      );
     }
   }
 
@@ -266,8 +334,9 @@ export default function EditorNotaFiscal({
   );
 
   const titulo = nota.emissao.numero
-    ? `NF-e nº ${String(nota.emissao.numero).padStart(6, "0")} · Série ${nota.emissao.serie}`
+    ? `NF-e nº ${formatarNumeroNota(nota.emissao.numero)} · Série ${nota.emissao.serie}`
     : `Rascunho #${nota.id}`;
+  const homologacao = statusQuery.data?.ambiente === "homologacao";
 
   return (
     <div className="space-y-6">
@@ -335,11 +404,50 @@ export default function EditorNotaFiscal({
               )}
               {salvando ? "Salvando..." : "Salvar"}
             </button>
+            <button
+              type="button"
+              disabled={ocupado || nota.itens.length === 0}
+              title={
+                nota.itens.length === 0
+                  ? "Adicione e salve ao menos um item para emitir"
+                  : undefined
+              }
+              onClick={() => setConfirmacao({ tipo: "emitir" })}
+              className="flex items-center gap-2 rounded-xl bg-sky-400 px-5 py-2.5 text-xs font-bold uppercase text-slate-950 hover:bg-sky-300 disabled:opacity-50"
+            >
+              {emitir.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {emitir.isPending
+                ? "Emitindo..."
+                : nota.status === "REJEITADA"
+                  ? "Emitir novamente"
+                  : "Emitir nota"}
+            </button>
           </div>
         )}
       </div>
 
-      {!editavel && <ResumoNaoEditavel nota={nota} />}
+      <PainelEmissao nota={nota} onAviso={onAviso} />
+
+      {pendencias.length > 0 && (
+        <div
+          className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200"
+          role="alert"
+        >
+          <p className="flex items-center gap-2 font-semibold">
+            <ListChecks className="h-4 w-4 shrink-0" />
+            Corrija as pendências abaixo antes de emitir:
+          </p>
+          <ul className="list-disc space-y-1 pl-10">
+            {pendencias.map((pendencia) => (
+              <li key={pendencia}>{pendencia}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {(erroEnvio || (erros && erros.cabecalho.length > 0)) && (
         <div
@@ -672,26 +780,42 @@ export default function EditorNotaFiscal({
         </Secao>
       </fieldset>
 
+      {nota.status !== "RASCUNHO" && <HistoricoNota notaID={nota.id} />}
+
       {confirmacao && (
         <Dialogo
           titulo={
             confirmacao.tipo === "excluir"
               ? "Excluir rascunho"
-              : "Trocar natureza de operação"
+              : confirmacao.tipo === "emitir"
+                ? "Emitir nota fiscal"
+                : "Trocar natureza de operação"
           }
           texto={
             confirmacao.tipo === "excluir"
               ? "O rascunho e seus itens serão excluídos. Esta ação não pode ser desfeita."
-              : "Trocar a natureza reaplica CFOP e tributação em todos os itens. Ajustes manuais serão perdidos. As demais alterações pendentes serão salvas junto."
+              : confirmacao.tipo === "emitir"
+                ? `${sujo ? "As alterações pendentes serão salvas e a" : "A"} nota será enviada à SEFAZ. Depois de autorizada, ela não poderá mais ser editada: só cancelada ou corrigida por carta de correção.`
+                : "Trocar a natureza reaplica CFOP e tributação em todos os itens. Ajustes manuais serão perdidos. As demais alterações pendentes serão salvas junto."
+          }
+          aviso={
+            confirmacao.tipo === "emitir" && homologacao
+              ? "Ambiente de homologação: a nota é enviada para testes e não tem valor fiscal."
+              : undefined
           }
           rotuloConfirmar={
-            confirmacao.tipo === "excluir" ? "Excluir" : "Trocar natureza"
+            confirmacao.tipo === "excluir"
+              ? "Excluir"
+              : confirmacao.tipo === "emitir"
+                ? "Emitir"
+                : "Trocar natureza"
           }
           perigo={confirmacao.tipo === "excluir"}
           ocupado={ocupado}
           onCancelar={() => setConfirmacao(null)}
           onConfirmar={() => {
             if (confirmacao.tipo === "excluir") void confirmarExclusao();
+            else if (confirmacao.tipo === "emitir") void emitirNota();
             else {
               setConfirmacao(null);
               void salvar({ naturezaOperacaoID: confirmacao.naturezaID });
@@ -726,43 +850,6 @@ const cabecalhoVazio = {
   veiculo: { placa: "", uf: "" },
 };
 
-function ResumoNaoEditavel({ nota }: { nota: NotaFiscal }) {
-  const { emissao } = nota;
-  return (
-    <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-900 p-5 text-xs text-slate-300">
-      <p className="flex items-center gap-2 font-semibold text-slate-200">
-        <Lock className="h-4 w-4 text-slate-400" />
-        Esta nota não pode mais ser editada.
-      </p>
-      {emissao.mensagemSefaz && (
-        <p className="text-slate-400">SEFAZ: {emissao.mensagemSefaz}</p>
-      )}
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-        {emissao.chave && (
-          <div>
-            <dt className="inline text-slate-500">Chave: </dt>
-            <dd className="inline font-mono">{emissao.chave}</dd>
-          </div>
-        )}
-        {emissao.protocolo && (
-          <div>
-            <dt className="inline text-slate-500">Protocolo: </dt>
-            <dd className="inline font-mono">{emissao.protocolo}</dd>
-          </div>
-        )}
-        {emissao.autorizadaEm && (
-          <div>
-            <dt className="inline text-slate-500">Autorizada em: </dt>
-            <dd className="inline">
-              {formatarDataHoraFiscal(emissao.autorizadaEm)}
-            </dd>
-          </div>
-        )}
-      </dl>
-    </div>
-  );
-}
-
 function Secao({
   Icone,
   titulo,
@@ -786,6 +873,7 @@ function Secao({
 function Dialogo({
   titulo,
   texto,
+  aviso,
   rotuloConfirmar,
   perigo,
   ocupado,
@@ -794,6 +882,7 @@ function Dialogo({
 }: {
   titulo: string;
   texto: string;
+  aviso?: string;
   rotuloConfirmar: string;
   perigo?: boolean;
   ocupado?: boolean;
@@ -809,6 +898,12 @@ function Dialogo({
       <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
         <h3 className="font-bold text-slate-100">{titulo}</h3>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">{texto}</p>
+        {aviso && (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            {aviso}
+          </p>
+        )}
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"

@@ -3,9 +3,11 @@ import type {
   DadosFiscaisMaterial,
   IndicadorIE,
   ModalidadeFrete,
+  OrigemEventoNotaFiscal,
   OrigemMercadoria,
   StatusNotaFiscal,
   RegimeTributario,
+  TipoEventoNotaFiscal,
 } from "./types";
 
 /** Código fiscal com descrição e indicação de suporte na emissão da V1. */
@@ -363,3 +365,57 @@ export const formatarDataHoraFiscal = (valor: string | null) =>
         timeStyle: "short",
       }).format(new Date(valor))
     : "—";
+
+/** Chave de acesso em grupos de 4 dígitos. */
+export const formatarChaveAcesso = (chave: string) =>
+  somenteDigitos(chave).replace(/(\d{4})(?=\d)/g, "$1 ");
+
+/** Número da nota com 6 dígitos, como impresso no DANFE. */
+export const formatarNumeroNota = (numero: number) =>
+  String(numero).padStart(6, "0");
+
+const PREFIXO_PENDENCIAS = /^A nota possui pendências:\s*/;
+
+/** Separa a mensagem de pendências da emissão em uma lista de frases. */
+export function separarPendencias(mensagem: string | undefined) {
+  if (!mensagem || !PREFIXO_PENDENCIAS.test(mensagem)) return null;
+  return mensagem
+    .replace(PREFIXO_PENDENCIAS, "")
+    .split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÂÊÔ])/)
+    .map((pendencia) => pendencia.trim())
+    .filter(Boolean);
+}
+
+/** Número do item citado na pendência ("Item N (DESCRIÇÃO): ..."). */
+export function itemDaPendencia(pendencia: string) {
+  const encontrado = /^Item (\d+)\b/.exec(pendencia);
+  return encontrado ? Number(encontrado[1]) : null;
+}
+
+export const ROTULOS_TIPO_EVENTO: Record<TipoEventoNotaFiscal, string> = {
+  EMISSAO_SOLICITADA: "Emissão solicitada",
+  FALHA_COMUNICACAO: "Falha de comunicação com a Focus NFe",
+  STATUS_ATUALIZADO: "Situação alterada",
+  CANCELAMENTO_SOLICITADO: "Cancelamento solicitado",
+  CANCELAMENTO_RECUSADO: "Cancelamento recusado",
+  CARTA_CORRECAO_REGISTRADA: "Carta de correção registrada",
+  CARTA_CORRECAO_RECUSADA: "Carta de correção recusada",
+};
+
+export const ROTULOS_ORIGEM_EVENTO: Record<OrigemEventoNotaFiscal, string> = {
+  USUARIO: "Ação do usuário",
+  WEBHOOK: "Retorno automático da SEFAZ",
+  SINCRONIZACAO: "Atualização manual",
+};
+
+/** Por quanto tempo a nota está em processamento, em milissegundos. */
+export function tempoProcessando(
+  emissao: { emitidaEm: string | null },
+  agora = Date.now(),
+) {
+  if (!emissao.emitidaEm) return 0;
+  return Math.max(0, agora - new Date(emissao.emitidaEm).getTime());
+}
+
+/** Depois desse tempo em processamento, a consulta manual à Focus é liberada. */
+export const LIMITE_ACOMPANHAMENTO_RAPIDO = 60_000;

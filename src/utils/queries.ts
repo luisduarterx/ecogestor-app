@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LIMITE_ACOMPANHAMENTO_RAPIDO, tempoProcessando } from "./fiscal";
 import {
   type ApiError,
   type AddOrderItemInput,
@@ -68,6 +69,8 @@ import {
   type NotaFiscal,
   type NotaFiscalResumo,
   type Paginado,
+  type ArquivoNotaFiscal,
+  type EventoNotaFiscal,
 } from "./types";
 import { api } from "./api";
 
@@ -1456,6 +1459,11 @@ export function useNotasFiscais(filtros: FiltrosNotasFiscais) {
   return useQuery<Paginado<NotaFiscalResumo>, ApiError>({
     queryKey: ["fiscal", "notas", filtros],
     placeholderData: (anteriores) => anteriores,
+    // Enquanto houver nota em processamento na página, acompanha o retorno.
+    refetchInterval: (query) =>
+      query.state.data?.dados.some((nota) => nota.status === "PROCESSANDO")
+        ? 30_000
+        : false,
     retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
     queryFn: async () =>
       (
@@ -1487,6 +1495,15 @@ export function useNotaFiscal(notaID: number) {
     queryKey: ["fiscal", "nota", notaID],
     enabled: Number.isInteger(notaID) && notaID > 0,
     retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    // Em processamento, recarrega a cada 5 s no primeiro minuto e depois a
+    // cada 30 s. O GET só lê o banco; o retorno chega pelo webhook da Focus.
+    refetchInterval: (query) => {
+      const nota = query.state.data;
+      if (nota?.status !== "PROCESSANDO") return false;
+      return tempoProcessando(nota.emissao) < LIMITE_ACOMPANHAMENTO_RAPIDO
+        ? 5_000
+        : 30_000;
+    },
     queryFn: async () =>
       (await api.get<NotaFiscal>(`/fiscal/notas/${notaID}`)).data,
   });
@@ -1498,6 +1515,9 @@ function aplicarNotaAtualizada(
   nota: NotaFiscal,
 ) {
   queryClient.setQueryData(["fiscal", "nota", nota.id], nota);
+  void queryClient.invalidateQueries({
+    queryKey: ["fiscal", "eventos", nota.id],
+  });
   return queryClient.invalidateQueries({
     queryKey: ["fiscal", "notas"],
   });
@@ -1559,4 +1579,82 @@ export function useExcluirNotaFiscal() {
       await queryClient.invalidateQueries({ queryKey: ["fiscal", "notas"] });
     },
   });
+}
+
+/** A emissão e a consulta à Focus podem demorar mais que o padrão. */
+const TEMPO_LIMITE_FOCUS = 60_000;
+
+export function useEmitirNotaFiscal(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, void>({
+    mutationFn: async () =>
+      (
+        await api.post<NotaFiscal>(
+          `/fiscal/notas/${notaID}/emitir`,
+          undefined,
+          {
+            timeout: TEMPO_LIMITE_FOCUS,
+          },
+        )
+      ).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useSincronizarNotaFiscal(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, void>({
+    mutationFn: async () =>
+      (
+        await api.post<NotaFiscal>(
+          `/fiscal/notas/${notaID}/sincronizar`,
+          undefined,
+          { timeout: TEMPO_LIMITE_FOCUS },
+        )
+      ).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useEventosNotaFiscal(notaID: number, enabled = true) {
+  return useQuery<EventoNotaFiscal[], ApiError>({
+    queryKey: ["fiscal", "eventos", notaID],
+    enabled,
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () =>
+      (await api.get<EventoNotaFiscal[]>(`/fiscal/notas/${notaID}/eventos`))
+        .data,
+  });
+}
+
+/**
+ * Baixa um arquivo da nota. Em caso de erro o corpo vem como Blob com o JSON
+ * padrão da API, convertido aqui para ApiError.
+ */
+export async function baixarArquivoNotaFiscal(
+  notaID: number,
+  arquivo: ArquivoNotaFiscal,
+) {
+  try {
+    const resposta = await api.get<Blob>(`/fiscal/notas/${notaID}/${arquivo}`, {
+      responseType: "blob",
+      timeout: TEMPO_LIMITE_FOCUS,
+      headers: { Accept: "*/*" },
+    });
+    return resposta.data;
+  } catch (caught) {
+    if (!(caught instanceof Blob)) throw caught;
+    let erro: ApiError;
+    try {
+      erro = JSON.parse(await caught.text()) as ApiError;
+    } catch {
+      erro = {
+        nome: "InternalError",
+        mensagem: "Não foi possível baixar o arquivo. Tente novamente.",
+        statusCode: 500,
+        action: "Tente novamente em instantes.",
+      };
+    }
+    throw erro;
+  }
 }
