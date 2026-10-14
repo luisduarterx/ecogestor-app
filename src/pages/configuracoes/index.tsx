@@ -2,8 +2,6 @@ import {
   AlertCircle,
   Building2,
   CheckCircle2,
-  ClipboardList,
-  DollarSign,
   FileText,
   HelpCircle,
   Loader2,
@@ -47,7 +45,7 @@ import type {
   TipoDocumentoEmpresa,
 } from "../../utils/types";
 
-type Aba = "empresa" | "pedidos" | "impressao";
+type Aba = "empresa" | "impressao";
 
 type CampoTexto = {
   [
@@ -489,8 +487,8 @@ function FormularioConfiguracoes({
               )}
             </div>
             <p className="mt-1 text-sm text-slate-400">
-              Defina os dados oficiais da empresa, as regras de preço dos
-              pedidos e o padrão de impressão dos comprovantes.
+              Defina os dados oficiais da empresa e o padrão de impressão dos
+              comprovantes.
             </p>
             <p className="mt-1 font-mono text-xs text-slate-500">
               {ultimaGravacao
@@ -565,12 +563,6 @@ function FormularioConfiguracoes({
           onClick={() => setAbaAtiva("empresa")}
           Icone={Building2}
           rotulo="Dados da Empresa"
-        />
-        <BotaoAba
-          ativa={abaAtiva === "pedidos"}
-          onClick={() => setAbaAtiva("pedidos")}
-          Icone={ClipboardList}
-          rotulo="Regras de Pedidos"
         />
         <BotaoAba
           ativa={abaAtiva === "impressao"}
@@ -856,47 +848,7 @@ function FormularioConfiguracoes({
         </div>
       )}
 
-      {/* ABA 2: REGRAS DE PEDIDOS */}
-      {abaAtiva === "pedidos" && (
-        <div className="space-y-6">
-          <div className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-              <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
-                <DollarSign className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-100">
-                  Alteração de Preço nos Pedidos
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Controle se os operadores podem negociar manualmente o valor
-                  por Kg ao lançar itens nos pedidos.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <LinhaChave
-                titulo="Permitir alterar preço nos pedidos de compra"
-                descricao="Quando ativado, o operador pode ajustar o valor por Kg do material ao comprar de fornecedores. Desativado, vale o preço da tabela."
-                ativo={formulario.permitirAlteracaoPrecoCompra}
-                onChange={(valor) =>
-                  alterar("permitirAlteracaoPrecoCompra", valor)
-                }
-              />
-              <LinhaChave
-                titulo="Permitir alterar preço nos pedidos de venda"
-                descricao="Quando ativado, o operador pode ajustar o valor por Kg do material ao vender para clientes. Desativado, vale o preço da tabela."
-                ativo={formulario.permitirAlteracaoPrecoVenda}
-                onChange={(valor) =>
-                  alterar("permitirAlteracaoPrecoVenda", valor)
-                }
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ABA 3: IMPRESSÃO E COMPROVANTES */}
+      {/* ABA 2: IMPRESSÃO E COMPROVANTES */}
       {abaAtiva === "impressao" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
