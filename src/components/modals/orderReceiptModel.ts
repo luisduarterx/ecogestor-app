@@ -32,6 +32,13 @@ export const DEFAULT_ORDER_RECEIPT_TEMPLATE: OrderReceiptTemplate = {
   paperWidthMm: 80,
 };
 
+/** Modelo sem dados da empresa, usado quando o usuário não pode ler as configurações. */
+export const MODELO_CUPOM_VAZIO: OrderReceiptTemplate = {
+  companyName: "",
+  footerLines: [],
+  paperWidthMm: 80,
+};
+
 type ReceiptItem = {
   id: number;
   description: string;
@@ -111,7 +118,8 @@ const LARGURA_PAPEL_MM: Record<
   number
 > = {
   CUPOM_80MM: 80,
-  FOLHA_A4: 210,
+  // A4 em paisagem: 297mm de largura por 210mm de altura.
+  FOLHA_A4: 297,
 };
 
 const linhas = (texto: string | null) =>
@@ -171,34 +179,43 @@ export function configuracaoParaModeloCupom(
   };
 }
 
+export const LARGURA_A4_PAISAGEM_MM = 297;
+
 export function getReceiptCss(paperWidthMm: number, forPrint = false) {
+  const folhaA4 = paperWidthMm >= LARGURA_A4_PAISAGEM_MM;
+  const paginaImpressao = folhaA4
+    ? "@page { size: A4 landscape; margin: 12mm; } .receipt { width: 100%; min-height: 0; padding: 0; }"
+    : `@page { size: ${paperWidthMm}mm auto; margin: 0; }`;
+
   return `
   ${forPrint ? '* { box-sizing: border-box; } html, body { margin: 0; padding: 0; background: white; color: black; } body { font-family: "Courier New", Courier, monospace; }' : ""}
   .receipt {
     box-sizing: border-box;
     width: ${paperWidthMm}mm;
-    min-height: 110mm;
-    padding: 4mm;
+    min-height: ${folhaA4 ? "210mm" : "110mm"};
+    padding: ${folhaA4 ? "12mm" : "4mm"};
     overflow-wrap: anywhere;
     background: #fff;
     color: #000;
     font-family: "Courier New", Courier, monospace;
-    font-size: 10px;
+    font-size: ${folhaA4 ? "13px" : "10px"};
     line-height: 1.25;
   }
+  .receipt h1, .receipt h2 { color: inherit; font-family: inherit; font-weight: 700; letter-spacing: normal; line-height: inherit; }
   .receipt-center { text-align: center; }
-  .receipt-logo { display: block; max-width: 60%; max-height: 18mm; margin: 0 auto 4px; object-fit: contain; }
-  .receipt-company { margin: 0 0 2px; font-size: 14px; text-transform: uppercase; }
-  .receipt-title { margin: 5px 0; text-align: center; font-size: 12px; }
+  .receipt-logo { display: block; max-width: 60%; max-height: ${folhaA4 ? "25mm" : "18mm"}; margin: 0 auto 4px; object-fit: contain; }
+  .receipt-company { margin: 0 0 2px; font-size: ${folhaA4 ? "20px" : "14px"}; text-transform: uppercase; }
+  .receipt-title { margin: 5px 0; text-align: center; font-size: ${folhaA4 ? "16px" : "12px"}; }
   .receipt-separator { margin: 6px 0; border-top: 1px dashed #000; }
   .receipt-row { display: flex; justify-content: space-between; gap: 8px; }
   .receipt-row span:last-child { flex-shrink: 0; }
   .receipt-strong { font-weight: 700; }
   .receipt-item { margin-top: 6px; page-break-inside: avoid; }
   .receipt-empty { padding: 8px 0; }
-  .receipt-total { font-size: 13px; font-weight: 700; }
-  .receipt-footer { margin-top: 8px; font-size: 9px; }
+  .receipt-total { font-size: ${folhaA4 ? "17px" : "13px"}; font-weight: 700; }
+  .receipt-footer { margin-top: 8px; font-size: ${folhaA4 ? "11px" : "9px"}; }
   .receipt-code { margin-top: 10px; font-weight: 700; letter-spacing: 2px; }
-  ${forPrint ? `@page { size: ${paperWidthMm}mm auto; margin: 0; } .receipt { box-shadow: none; }` : ""}
+  .receipt-system { margin-top: 6px; }
+  ${forPrint ? `${paginaImpressao} .receipt { box-shadow: none; }` : ""}
 `;
 }

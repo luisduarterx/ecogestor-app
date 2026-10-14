@@ -1229,6 +1229,9 @@ export function useDeleteRole() {
 export function useConfiguracoesSistema() {
   return useQuery<ConfiguracaoSistemaResponse | null, ApiError>({
     queryKey: ["configuracoes"],
+    staleTime: 5 * 60_000,
+    // Falta de permissão (403) não se resolve com novas tentativas.
+    retry: (falhas, erro) => erro.statusCode !== 403 && falhas < 2,
     queryFn: async () => {
       try {
         return (await api.get<ConfiguracaoSistemaResponse>("/configuracoes"))

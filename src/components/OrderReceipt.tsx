@@ -1,7 +1,11 @@
-import type {
-  OrderReceiptData,
-  OrderReceiptTemplate,
+import { useEffect, useRef, useState } from "react";
+import {
+  getReceiptCss,
+  type OrderReceiptData,
+  type OrderReceiptTemplate,
 } from "./modals/orderReceiptModel";
+
+const PIXELS_POR_MM = 96 / 25.4;
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -49,7 +53,9 @@ export default function OrderReceipt({
             }}
           />
         )}
-        <h1 className="receipt-company">{template.companyName}</h1>
+        {template.companyName && (
+          <h1 className="receipt-company">{template.companyName}</h1>
+        )}
         {template.legalName && <div>{template.legalName}</div>}
         {template.document && (
           <div>
@@ -126,7 +132,50 @@ export default function OrderReceipt({
         <div className="receipt-code">
           PED-{String(data.id).padStart(8, "0")}
         </div>
+        {/* Assinatura fixa do sistema: não depende das configurações. */}
+        <div className="receipt-system">
+          <div className="receipt-strong">ECOGESTOR</div>
+          <div>Sistema de Gerenciamento de Reciclagens</div>
+        </div>
       </footer>
     </article>
+  );
+}
+
+/**
+ * Exibe o cupom reduzido para caber na largura disponível, mantendo as
+ * proporções da impressão. A marcação impressa continua sendo a do cupom.
+ */
+export function CupomAjustado({
+  data,
+  template,
+  receiptId,
+}: {
+  data: OrderReceiptData;
+  template: OrderReceiptTemplate;
+  receiptId: string;
+}) {
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [larguraArea, setLarguraArea] = useState(0);
+  const larguraCupom = template.paperWidthMm * PIXELS_POR_MM;
+  const escala = larguraArea > 0 ? Math.min(1, larguraArea / larguraCupom) : 1;
+
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+    const observador = new ResizeObserver(([entrada]) =>
+      setLarguraArea(entrada.contentRect.width),
+    );
+    observador.observe(area);
+    return () => observador.disconnect();
+  }, []);
+
+  return (
+    <div ref={areaRef} className="flex w-full justify-center overflow-hidden">
+      <style>{getReceiptCss(template.paperWidthMm)}</style>
+      <div style={{ zoom: escala }}>
+        <OrderReceipt data={data} template={template} receiptId={receiptId} />
+      </div>
+    </div>
   );
 }

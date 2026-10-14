@@ -19,18 +19,16 @@ import {
 import {
   useEffect,
   useId,
-  useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
-import OrderReceipt from "../../components/OrderReceipt";
+import { CupomAjustado } from "../../components/OrderReceipt";
 import {
   configuracaoParaModeloCupom,
   formatarCep,
   formatarDocumentoEmpresa,
-  getReceiptCss,
   somenteDigitos,
   type OrderReceiptData,
   type OrderReceiptTemplate,
@@ -194,8 +192,6 @@ const PEDIDO_EXEMPLO: OrderReceiptData = {
   ],
   total: 3985,
 };
-
-const PIXELS_POR_MM = 96 / 25.4;
 
 const CLASSE_CAMPO =
   "w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60";
@@ -917,8 +913,8 @@ function FormularioConfiguracoes({
                   valor="FOLHA_A4"
                   selecionado={formulario.formatoImpressaoPadrao}
                   onChange={(valor) => alterar("formatoImpressaoPadrao", valor)}
-                  titulo="Folha A4"
-                  descricao="Comprovante em folha inteira A4, ideal para impressoras laser/jato de tinta ou geração de PDF."
+                  titulo="Folha A4 (paisagem)"
+                  descricao="Comprovante em folha A4 na horizontal, ideal para impressoras laser/jato de tinta ou geração de PDF."
                 />
               </div>
             </Cartao>
@@ -993,7 +989,7 @@ function FormularioConfiguracoes({
               titulo={`Pré-visualização • ${
                 formulario.formatoImpressaoPadrao === "CUPOM_80MM"
                   ? "Cupom 80mm"
-                  : "Folha A4"
+                  : "Folha A4 paisagem"
               }`}
             />
           </div>
@@ -1159,21 +1155,6 @@ function PreviaCupom({
   titulo?: string;
 }) {
   const idCupom = `previa-cupom-${useId().replaceAll(":", "")}`;
-  const areaRef = useRef<HTMLDivElement>(null);
-  const [larguraArea, setLarguraArea] = useState(0);
-  const larguraCupom = modelo.paperWidthMm * PIXELS_POR_MM;
-  // Reduz o cupom para caber na coluna, mantendo as proporções da impressão.
-  const escala = larguraArea > 0 ? Math.min(1, larguraArea / larguraCupom) : 1;
-
-  useEffect(() => {
-    const area = areaRef.current;
-    if (!area) return;
-    const observador = new ResizeObserver(([entrada]) =>
-      setLarguraArea(entrada.contentRect.width),
-    );
-    observador.observe(area);
-    return () => observador.disconnect();
-  }, []);
 
   return (
     <div className="space-y-2">
@@ -1182,14 +1163,8 @@ function PreviaCupom({
           {titulo}
         </p>
       )}
-      <div
-        ref={areaRef}
-        className="flex justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-950 p-3"
-      >
-        <style>{getReceiptCss(modelo.paperWidthMm)}</style>
-        <div style={{ zoom: escala }}>
-          <OrderReceipt data={dados} template={modelo} receiptId={idCupom} />
-        </div>
+      <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+        <CupomAjustado data={dados} template={modelo} receiptId={idCupom} />
       </div>
     </div>
   );
