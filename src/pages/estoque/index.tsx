@@ -25,7 +25,9 @@ import {
 } from "../../utils/queries";
 import type { ApiError } from "../../utils/types";
 
-import { exportReport, type Report } from "../../utils/reportExport";
+import RelatorioModal from "../../components/modals/RelatorioModal";
+import { criarRelatoriosEstoque } from "../../utils/relatorios/definicoes";
+import type { FormatoRelatorio } from "../../utils/relatorios/tipos";
 
 const DEFAULT_MATERIAL_COLOR = "#34d399";
 
@@ -271,122 +273,35 @@ export function Estoque() {
     [filteredPeriodMaterials],
   );
 
-  function handleExport(format: "csv" | "pdf") {
-    const query =
-      activeSubTab === "levels"
-        ? balancesQuery
-        : activeSubTab === "period-report"
-          ? materialsReportQuery
-          : activeSubTab === "conversions"
-            ? conversionsQuery
-            : movementsQuery;
-    if (query.isFetching || balancesQuery.isFetching) {
-      setExportFeedback("Aguarde o carregamento dos dados.");
-      return;
-    }
-    if (query.isError || balancesQuery.isError) {
-      setExportFeedback(
-        "Não foi possível carregar os dados. Tente novamente antes de exportar.",
-      );
-      return;
-    }
-    const filters = `Busca: ${searchTerm || "Todas"}; categoria (ID): ${categoryFilter}; fluxo: ${activeSubTab === "period-report" ? periodFlowFilter : transactionTypeFilter}; período: ${reportStartDate} a ${reportEndDate}; status de conversão: ${conversionStatusFilter || "Todos"}`;
-    const report: Report =
-      activeSubTab === "levels"
-        ? {
-            title: "Saldos de estoque",
-            filters,
-            columns: [
-              "Código",
-              "Material",
-              "Categoria",
-              "Saldo (kg)",
-              "Custo médio (R$)",
-              "Valor de estoque (R$)",
-            ],
-            rows: filteredMaterials.map((m) => [
-              m.id,
-              m.name,
-              m.category,
-              m.stock,
-              m.averageCost ?? 0,
-              m.totalValue ?? 0,
-            ]),
-          }
-        : activeSubTab === "period-report"
-          ? {
-              title: "Materiais comprados e vendidos por período",
-              filters,
-              columns: [
-                "Código",
-                "Material",
-                "Categoria",
-                "Comprado (kg)",
-                "Valor comprado (R$)",
-                "Vendido (kg)",
-                "Valor vendido (R$)",
-                "Saldo do período (kg)",
-              ],
-              rows: filteredPeriodMaterials.map((material) => [
-                material.id,
-                material.nome,
-                material.categoria.nome,
-                material.compras.peso,
-                material.compras.valor,
-                material.vendas.peso,
-                material.vendas.valor,
-                material.compras.peso - material.vendas.peso,
-              ]),
-            }
-          : activeSubTab === "conversions"
-            ? {
-                title: "Conversões de estoque",
-                filters,
-                columns: [
-                  "Código",
-                  "Data",
-                  "Origem",
-                  "Quantidade origem (kg)",
-                  "Destino",
-                  "Quantidade destino (kg)",
-                  "Status",
-                  "Descrição",
-                ],
-                rows: filteredConversions.map((c) => [
-                  c.id,
-                  formatarData(c.createdAt),
-                  c.material_origem.nome,
-                  c.quantidade_origem,
-                  c.material_destino.nome,
-                  c.quantidade_destino,
-                  c.status,
-                  c.descricao,
-                ]),
-              }
-            : {
-                title: "Movimentações de estoque",
-                filters,
-                columns: [
-                  "Código",
-                  "Data",
-                  "Material",
-                  "Tipo",
-                  "Quantidade (kg)",
-                  "Origem",
-                  "Descrição",
-                ],
-                rows: filteredTransactions.map((t) => [
-                  t.id,
-                  t.date,
-                  t.materialName,
-                  t.type,
-                  t.weight,
-                  t.entityName,
-                  t.description,
-                ]),
-              };
-    setExportFeedback(exportReport(report, format));
-  }
+  const [exportFormat, setExportFormat] = useState<FormatoRelatorio | null>(
+    null,
+  );
+  const reportDefinitions = useMemo(
+    () =>
+      criarRelatoriosEstoque({
+        categorias: categories
+          .map((category) => ({
+            valor: String(category.id),
+            rotulo: category.nome,
+          }))
+          .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR")),
+        materiais: (balancesQuery.data?.dados ?? [])
+          .map((material) => ({
+            valor: String(material.id),
+            rotulo: material.nome,
+          }))
+          .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR")),
+      }),
+    [balancesQuery.data, categories],
+  );
+  const initialReport =
+    activeSubTab === "levels"
+      ? "saldos"
+      : activeSubTab === "period-report"
+        ? "periodo"
+        : activeSubTab === "conversions"
+          ? "conversoes"
+          : "movimentacoes";
 
   async function handleReverseConversion() {
     if (reverseConfirmationID === null) return;
@@ -501,7 +416,7 @@ export function Estoque() {
           {/* Quick Exporters */}
           <div className="flex gap-2">
             <button
-              onClick={() => handleExport("csv")}
+              onClick={() => setExportFormat("csv")}
               className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3.5 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-emerald-500/25 select-none"
               title="Exportar dados filtrados para planilha Excel/CSV"
             >
@@ -509,7 +424,7 @@ export function Estoque() {
               Exportar CSV
             </button>
             <button
-              onClick={() => handleExport("pdf")}
+              onClick={() => setExportFormat("pdf")}
               className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3.5 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-rose-500/25 select-none"
               title="Gerar relatório de auditoria em PDF oficial"
             >
@@ -1255,6 +1170,18 @@ export function Estoque() {
           </div>
         )}
       </div>
+      {exportFormat && (
+        <RelatorioModal
+          definicoes={reportDefinitions}
+          relatorioInicial={initialReport}
+          formatoInicial={exportFormat}
+          onClose={() => setExportFormat(null)}
+          onConcluido={(message) => {
+            setExportFeedback(message);
+            setExportFormat(null);
+          }}
+        />
+      )}
     </LayoutBase>
   );
 }

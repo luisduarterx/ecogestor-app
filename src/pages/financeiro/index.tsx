@@ -1,6 +1,8 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
-import { exportReport } from "../../utils/reportExport";
+import RelatorioModal from "../../components/modals/RelatorioModal";
+import { criarRelatoriosFinanceiro } from "../../utils/relatorios/definicoes";
+import type { FormatoRelatorio } from "../../utils/relatorios/tipos";
 import {
   DollarSign,
   Search,
@@ -372,45 +374,19 @@ export function Financeiro() {
     (entry) => entry.tipo === "RECEBER",
   ).length;
   const [exportFeedback, setExportFeedback] = useState("");
-  function handleExport(format: "csv" | "pdf") {
-    if (financialMovementsQuery.isFetching) {
-      setExportFeedback("Aguarde o carregamento das movimentações.");
-      return;
-    }
-    if (financialMovementsQuery.isError) {
-      setExportFeedback(
-        "Não foi possível carregar as movimentações. Tente novamente antes de exportar.",
-      );
-      return;
-    }
-    setExportFeedback(
-      exportReport(
-        {
-          title: "Movimentações financeiras",
-          filters: `Busca: ${searchTerm || "Todas"}; fluxo: ${flowFilter === "all" ? "Todos" : flowFilter === "income" ? "Entradas" : "Saídas"}`,
-          columns: [
-            "Código",
-            "Data",
-            "Direção",
-            "Descrição",
-            "Conta",
-            "Origem",
-            "Valor (R$)",
-          ],
-          rows: filteredLog.map((log) => [
-            log.id,
-            log.date,
-            log.type === "income" ? "Entrada" : "Saída",
-            log.description,
-            log.account,
-            log.category,
-            log.value,
-          ]),
-        },
-        format,
-      ),
-    );
-  }
+  const [exportFormat, setExportFormat] = useState<FormatoRelatorio | null>(
+    null,
+  );
+  const reportDefinitions = useMemo(
+    () =>
+      criarRelatoriosFinanceiro({
+        contas: (financialAccountsQuery.data ?? []).map((account) => ({
+          valor: String(account.id),
+          rotulo: account.nome,
+        })),
+      }),
+    [financialAccountsQuery.data],
+  );
 
   return (
     <LayoutBase activeTab="financeiro" pageTitle="FINANCEIRO">
@@ -1019,7 +995,7 @@ export function Financeiro() {
                     {/* Export buttons */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleExport("csv")}
+                        onClick={() => setExportFormat("csv")}
                         className="flex items-center justify-center gap-1.5 bg-slate-950/40 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-emerald-500/25 select-none"
                         title="Exportar fluxo de caixa para CSV"
                       >
@@ -1027,7 +1003,7 @@ export function Financeiro() {
                         Exportar CSV
                       </button>
                       <button
-                        onClick={() => handleExport("pdf")}
+                        onClick={() => setExportFormat("pdf")}
                         className="flex items-center justify-center gap-1.5 bg-slate-950/40 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold px-3 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all hover:border-rose-500/25 select-none"
                         title="Gerar PDF do fluxo de caixa"
                       >
@@ -1716,6 +1692,18 @@ export function Financeiro() {
           item={reverseTransferItem}
           setIsOpen={(open) => {
             if (!open) setReverseTransferItem(null);
+          }}
+        />
+      )}
+      {exportFormat && (
+        <RelatorioModal
+          definicoes={reportDefinitions}
+          relatorioInicial="movimentacoes-financeiras"
+          formatoInicial={exportFormat}
+          onClose={() => setExportFormat(null)}
+          onConcluido={(message) => {
+            setExportFeedback(message);
+            setExportFormat(null);
           }}
         />
       )}

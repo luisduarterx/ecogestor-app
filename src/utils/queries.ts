@@ -23,6 +23,7 @@ import {
   type InventoryConversionsResponse,
   type InventoryMovement,
   type InventoryMovementsResponse,
+  type InventoryPagination,
   type UserAuthenticated,
   type LoginReponse,
   type SessionUserResponse,
@@ -143,95 +144,100 @@ function numeric(...values: unknown[]) {
 }
 
 /** Relatório consolidado de materiais comprados e vendidos por período. */
+export async function fetchDashboardMaterials(
+  startDate: string,
+  endDate: string,
+): Promise<DashboardMaterialsReport> {
+  const { data } = await api.get<unknown>("/dashboard/materiais", {
+    params: { dataInicial: startDate, dataFinal: endDate },
+  });
+  const response = record(data);
+  const rawMaterials = Array.isArray(response.materiais)
+    ? response.materiais
+    : Array.isArray(response.dados)
+      ? response.dados
+      : Array.isArray(data)
+        ? data
+        : [];
+
+  return {
+    periodo: { dataInicial: startDate, dataFinal: endDate },
+    materiais: rawMaterials.map((raw, index) => {
+      const item = record(raw);
+      const material = record(item.material);
+      const categoria = record(item.categoria ?? material.categoria);
+      const compras = record(item.compras ?? item.compra);
+      const vendas = record(item.vendas ?? item.venda);
+      return {
+        id: numeric(
+          item.materialID,
+          item.material_id,
+          material.id,
+          item.id,
+          index,
+        ),
+        nome: String(
+          item.nome ?? item.material_nome ?? material.nome ?? "Material",
+        ),
+        categoria: {
+          id:
+            categoria.id === undefined
+              ? null
+              : numeric(categoria.id, item.categoriaID),
+          nome: String(
+            categoria.nome ?? item.categoria_nome ?? "Sem categoria",
+          ),
+        },
+        compras: {
+          peso: numeric(
+            compras.peso,
+            compras.peso_total,
+            item.peso_comprado,
+            item.total_comprado,
+            item.quantidade_comprada,
+          ),
+          valor: numeric(
+            compras.valor,
+            compras.valor_total,
+            item.valor_comprado,
+            item.total_valor_comprado,
+          ),
+          pedidos: numeric(
+            compras.pedidos,
+            compras.quantidade_pedidos,
+            item.compras_quantidade,
+          ),
+        },
+        vendas: {
+          peso: numeric(
+            vendas.peso,
+            vendas.peso_total,
+            item.peso_vendido,
+            item.total_vendido,
+            item.quantidade_vendida,
+          ),
+          valor: numeric(
+            vendas.valor,
+            vendas.valor_total,
+            item.valor_vendido,
+            item.total_valor_vendido,
+          ),
+          pedidos: numeric(
+            vendas.pedidos,
+            vendas.quantidade_pedidos,
+            item.vendas_quantidade,
+          ),
+        },
+      };
+    }),
+  } satisfies DashboardMaterialsReport;
+}
+
 export function useDashboardMaterials(startDate: string, endDate: string) {
   return useQuery({
     queryKey: ["dashboard", "materiais", startDate, endDate],
     enabled: Boolean(startDate && endDate),
-    queryFn: async () => {
-      const { data } = await api.get<unknown>("/dashboard/materiais", {
-        params: { dataInicial: startDate, dataFinal: endDate },
-      });
-      const response = record(data);
-      const rawMaterials = Array.isArray(response.materiais)
-        ? response.materiais
-        : Array.isArray(response.dados)
-          ? response.dados
-          : Array.isArray(data)
-            ? data
-            : [];
-
-      return {
-        periodo: { dataInicial: startDate, dataFinal: endDate },
-        materiais: rawMaterials.map((raw, index) => {
-          const item = record(raw);
-          const material = record(item.material);
-          const categoria = record(item.categoria ?? material.categoria);
-          const compras = record(item.compras ?? item.compra);
-          const vendas = record(item.vendas ?? item.venda);
-          return {
-            id: numeric(
-              item.materialID,
-              item.material_id,
-              material.id,
-              item.id,
-              index,
-            ),
-            nome: String(
-              item.nome ?? item.material_nome ?? material.nome ?? "Material",
-            ),
-            categoria: {
-              id:
-                categoria.id === undefined
-                  ? null
-                  : numeric(categoria.id, item.categoriaID),
-              nome: String(
-                categoria.nome ?? item.categoria_nome ?? "Sem categoria",
-              ),
-            },
-            compras: {
-              peso: numeric(
-                compras.peso,
-                compras.peso_total,
-                item.peso_comprado,
-                item.total_comprado,
-                item.quantidade_comprada,
-              ),
-              valor: numeric(
-                compras.valor,
-                compras.valor_total,
-                item.valor_comprado,
-                item.total_valor_comprado,
-              ),
-              pedidos: numeric(
-                compras.pedidos,
-                compras.quantidade_pedidos,
-                item.compras_quantidade,
-              ),
-            },
-            vendas: {
-              peso: numeric(
-                vendas.peso,
-                vendas.peso_total,
-                item.peso_vendido,
-                item.total_vendido,
-                item.quantidade_vendida,
-              ),
-              valor: numeric(
-                vendas.valor,
-                vendas.valor_total,
-                item.valor_vendido,
-                item.total_valor_vendido,
-              ),
-              pedidos: numeric(
-                vendas.pedidos,
-                vendas.quantidade_pedidos,
-                item.vendas_quantidade,
-              ),
-            },
-          };
-        }),
-      } satisfies DashboardMaterialsReport;
-    },
+    queryFn: () => fetchDashboardMaterials(startDate, endDate),
   });
 }
 export function useOrders(filters: OrdersFilters = {}) {
@@ -1259,4 +1265,65 @@ export function useAtualizarConfiguracoesSistema() {
       queryClient.setQueryData(["configuracoes"], configuracao);
     },
   });
+}
+
+/** Rotas paginadas usadas na exportação de relatórios. */
+type RotaRelatorioPaginada =
+  | "/estoque/saldos"
+  | "/estoque/movimentacoes"
+  | "/estoque/conversoes"
+  | "/financeiro/movimentacoes";
+
+type ParametrosRelatorio = Record<string, string | number | undefined>;
+
+type RespostaPaginada<T> = { dados: T[]; paginacao: InventoryPagination };
+
+const LIMITE_POR_PAGINA = 100;
+const PAGINAS_SIMULTANEAS = 4;
+
+/** Conta os registros de uma rota paginada sem carregar os dados. */
+export async function contarRegistrosRelatorio(
+  rota: RotaRelatorioPaginada,
+  parametros: ParametrosRelatorio,
+) {
+  const { data } = await api.get<RespostaPaginada<unknown>>(rota, {
+    params: { ...parametros, pagina: 1, limite: 1 },
+  });
+  return data.paginacao.total;
+}
+
+/**
+ * Carrega todas as páginas de uma rota para um relatório. Se o total passar
+ * do limite informado, nada além da primeira página é carregado.
+ */
+export async function buscarRegistrosRelatorio<T>(
+  rota: RotaRelatorioPaginada,
+  parametros: ParametrosRelatorio,
+  limiteRegistros: number,
+  aoProgredir?: (carregados: number, total: number) => void,
+): Promise<{ total: number; dados: T[] | null }> {
+  const buscarPagina = async (pagina: number) =>
+    (
+      await api.get<RespostaPaginada<T>>(rota, {
+        params: { ...parametros, pagina, limite: LIMITE_POR_PAGINA },
+      })
+    ).data;
+
+  const primeira = await buscarPagina(1);
+  const { total, totalPaginas } = primeira.paginacao;
+  if (total > limiteRegistros) return { total, dados: null };
+
+  const dados = [...primeira.dados];
+  aoProgredir?.(dados.length, total);
+  for (let pagina = 2; pagina <= totalPaginas; pagina += PAGINAS_SIMULTANEAS) {
+    const lote = Array.from(
+      { length: Math.min(PAGINAS_SIMULTANEAS, totalPaginas - pagina + 1) },
+      (_, indice) => buscarPagina(pagina + indice),
+    );
+    (await Promise.all(lote)).forEach((resposta) =>
+      dados.push(...resposta.dados),
+    );
+    aoProgredir?.(dados.length, total);
+  }
+  return { total, dados };
 }

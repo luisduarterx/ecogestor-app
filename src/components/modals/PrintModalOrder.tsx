@@ -7,15 +7,11 @@ import {
   useRecord,
 } from "../../utils/queries";
 import { imprimirHtml } from "../../utils/impressao";
-import type { ApiError, ConfiguracaoSistemaResponse } from "../../utils/types";
 import { CupomAjustado } from "../OrderReceipt";
 import {
-  DEFAULT_ORDER_RECEIPT_TEMPLATE,
-  MODELO_CUPOM_VAZIO,
-  configuracaoParaModeloCupom,
   getReceiptCss,
   orderToReceiptData,
-  type OrderReceiptTemplate,
+  resolverModeloCupom,
 } from "./orderReceiptModel";
 
 interface PrintModalOrderProps {
@@ -23,22 +19,6 @@ interface PrintModalOrderProps {
   onClose: () => void;
   /** Dispara a impressão assim que o cupom estiver pronto. */
   imprimirAoAbrir?: boolean;
-}
-
-/**
- * Define o modelo do cupom a partir das configurações do sistema.
- * Retorna null enquanto não for possível decidir o modelo.
- */
-function resolverModeloCupom(
-  configuracao: ConfiguracaoSistemaResponse | null | undefined,
-  erro: ApiError | null,
-): OrderReceiptTemplate | null {
-  // Sem permissão para ler as configurações, o cupom sai sem dados da empresa.
-  if (erro?.statusCode === 403) return MODELO_CUPOM_VAZIO;
-  if (erro || configuracao === undefined) return null;
-  // Configuração ainda não cadastrada: mantém o modelo padrão do EcoGestor.
-  if (configuracao === null) return DEFAULT_ORDER_RECEIPT_TEMPLATE;
-  return configuracaoParaModeloCupom(configuracao);
 }
 
 export default function PrintModalOrder({

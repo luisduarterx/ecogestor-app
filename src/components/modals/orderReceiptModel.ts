@@ -1,5 +1,7 @@
 import type {
+  ApiError,
   ConfiguracaoSistemaCampos,
+  ConfiguracaoSistemaResponse,
   OrderResponse,
   RecordResponse,
   TipoDocumentoEmpresa,
@@ -270,4 +272,20 @@ export function getReceiptCss(paperWidthMm: number, forPrint = false) {
   ${folhaA4 ? ".receipt-info-line { display: flex; flex-wrap: wrap; column-gap: 8mm; row-gap: 2px; } .receipt-info-line + .receipt-info-line { margin-top: 3px; }" : ""}
   ${forPrint ? `${paginaImpressao} .receipt { box-shadow: none; }` : ""}
 `;
+}
+
+/**
+ * Define o modelo do cupom a partir das configurações do sistema.
+ * Retorna null enquanto não for possível decidir o modelo.
+ */
+export function resolverModeloCupom(
+  configuracao: ConfiguracaoSistemaResponse | null | undefined,
+  erro: ApiError | null,
+): OrderReceiptTemplate | null {
+  // Sem permissão para ler as configurações, o cupom sai sem dados da empresa.
+  if (erro?.statusCode === 403) return MODELO_CUPOM_VAZIO;
+  if (erro || configuracao === undefined) return null;
+  // Configuração ainda não cadastrada: mantém o modelo padrão do EcoGestor.
+  if (configuracao === null) return DEFAULT_ORDER_RECEIPT_TEMPLATE;
+  return configuracaoParaModeloCupom(configuracao);
 }
