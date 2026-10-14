@@ -656,8 +656,6 @@ export type ConfiguracaoSistemaCampos = {
   exibirDadosEmpresa: boolean;
   exibirOperador: boolean;
   imprimirAutomaticamente: boolean;
-  permitirAlteracaoPrecoCompra: boolean;
-  permitirAlteracaoPrecoVenda: boolean;
 };
 export type ConfiguracaoSistemaResponse = ConfiguracaoSistemaCampos & {
   id: number;
