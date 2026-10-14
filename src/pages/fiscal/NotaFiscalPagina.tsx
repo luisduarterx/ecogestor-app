@@ -1,9 +1,10 @@
 import { Loader2, Lock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { LayoutBase } from "../../components/LayoutBase";
 import AvisoAmbienteFiscal from "../../components/fiscal/AvisoAmbienteFiscal";
-import { mensagemErroFiscal } from "../../utils/fiscal";
+import { ROTULOS_STATUS_NOTA, mensagemErroFiscal } from "../../utils/fiscal";
 import { useNotaFiscal, useStatusFiscal } from "../../utils/queries";
 import EditorNotaFiscal from "./EditorNotaFiscal";
 
@@ -14,6 +15,25 @@ export function NotaFiscalPagina() {
   const statusQuery = useStatusFiscal();
   const notaQuery = useNotaFiscal(notaID);
   const [aviso, setAviso] = useState("");
+  const queryClient = useQueryClient();
+  const statusNota = notaQuery.data?.status;
+  const statusAnterior = useRef(statusNota);
+
+  // O acompanhamento automático detecta o retorno da SEFAZ: avisa e atualiza
+  // a lista e o histórico, que não passam pelas mutações.
+  useEffect(() => {
+    const anterior = statusAnterior.current;
+    statusAnterior.current = statusNota;
+    if (anterior !== "PROCESSANDO" || !statusNota || statusNota === anterior)
+      return;
+    setAviso(
+      `Retorno da SEFAZ: nota ${ROTULOS_STATUS_NOTA[statusNota].toLowerCase()}.`,
+    );
+    void queryClient.invalidateQueries({ queryKey: ["fiscal", "notas"] });
+    void queryClient.invalidateQueries({
+      queryKey: ["fiscal", "eventos", notaID],
+    });
+  }, [statusNota, notaID, queryClient]);
 
   useEffect(() => {
     if (!aviso) return;
