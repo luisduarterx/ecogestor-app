@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router";
 import BuscaRegistro from "../../components/fiscal/BuscaRegistro";
+import CartasCorrecao from "../../components/fiscal/CartasCorrecao";
 import HistoricoNota from "../../components/fiscal/HistoricoNota";
 import PainelEmissao from "../../components/fiscal/PainelEmissao";
 import SeloStatusNota from "../../components/fiscal/SeloStatusNota";
@@ -103,6 +104,21 @@ export default function EditorNotaFiscal({
     cabecalhoDaNota(nota),
   );
   const [linhas, setLinhas] = useState<LinhaItem[]>(() => linhasDaNota(nota));
+
+  // A nota pode chegar atualizada depois da montagem (cache antigo,
+  // acompanhamento ou sincronização). Sem edição do usuário, o formulário
+  // passa a refletir a versão nova.
+  const [notaBase, setNotaBase] = useState(nota);
+  if (notaBase !== nota) {
+    setNotaBase(nota);
+    const semEdicao =
+      Object.keys(alteracoesCabecalho(formulario, notaBase)).length === 0 &&
+      !itensAlterados(linhas, notaBase);
+    if (semEdicao) {
+      setFormulario(cabecalhoDaNota(nota));
+      setLinhas(linhasDaNota(nota));
+    }
+  }
   const [erros, setErros] = useState<ErrosFormulario | null>(null);
   const [erroEnvio, setErroEnvio] = useState("");
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
@@ -430,7 +446,11 @@ export default function EditorNotaFiscal({
         )}
       </div>
 
-      <PainelEmissao nota={nota} onAviso={onAviso} />
+      <PainelEmissao
+        nota={nota}
+        onAviso={onAviso}
+        onRecarregar={onRecarregar}
+      />
 
       {pendencias.length > 0 && (
         <div
@@ -779,6 +799,8 @@ export default function EditorNotaFiscal({
           </label>
         </Secao>
       </fieldset>
+
+      <CartasCorrecao nota={nota} onAviso={onAviso} />
 
       {nota.status !== "RASCUNHO" && <HistoricoNota notaID={nota.id} />}
 

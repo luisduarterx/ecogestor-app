@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Ban,
+  CircleSlash,
   CheckCircle2,
   Copy,
   Download,
@@ -18,21 +19,26 @@ import {
   mensagemErroFiscal,
   tempoProcessando,
 } from "../../utils/fiscal";
-import {
-  baixarArquivoNotaFiscal,
-  useSincronizarNotaFiscal,
-} from "../../utils/queries";
+import { useSincronizarNotaFiscal } from "../../utils/queries";
 import type { ArquivoNotaFiscal, NotaFiscal } from "../../utils/types";
+import CancelarNotaModal from "../modals/CancelarNotaModal";
+import { abrirArquivoNota } from "./arquivosNota";
 
 interface PainelEmissaoProps {
   nota: NotaFiscal;
   onAviso: (mensagem: string) => void;
+  onRecarregar: () => void;
 }
 
 /** Situação da emissão: acompanhamento, resultado e arquivos da nota. */
-export default function PainelEmissao({ nota, onAviso }: PainelEmissaoProps) {
+export default function PainelEmissao({
+  nota,
+  onAviso,
+  onRecarregar,
+}: PainelEmissaoProps) {
   const sincronizar = useSincronizarNotaFiscal(nota.id);
   const [erro, setErro] = useState("");
+  const [cancelando, setCancelando] = useState(false);
   const agora = useRelogio(nota.status === "PROCESSANDO");
   const { emissao, cancelamento } = nota;
 
@@ -116,6 +122,14 @@ export default function PainelEmissao({ nota, onAviso }: PainelEmissaoProps) {
             <>
               <BotoesArquivos nota={nota} onErro={setErro} />
               {botaoSincronizar}
+              <button
+                type="button"
+                onClick={() => setCancelando(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10"
+              >
+                <CircleSlash className="h-4 w-4" />
+                Cancelar nota
+              </button>
             </>
           }
         >
@@ -200,6 +214,17 @@ export default function PainelEmissao({ nota, onAviso }: PainelEmissaoProps) {
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {erro}
         </div>
+      )}
+      {cancelando && nota.status === "AUTORIZADA" && (
+        <CancelarNotaModal
+          nota={nota}
+          onClose={() => setCancelando(false)}
+          onCancelada={() => {
+            setCancelando(false);
+            onAviso("Nota cancelada na SEFAZ.");
+          }}
+          onRecarregar={onRecarregar}
+        />
       )}
     </div>
   );
@@ -302,8 +327,13 @@ function MensagemSefaz({ nota, classe }: { nota: NotaFiscal; classe: string }) {
   );
 }
 
-const ARQUIVOS: Record<
+type ArquivoPrincipal = Extract<
   ArquivoNotaFiscal,
+  "danfe" | "xml" | "xml-cancelamento"
+>;
+
+const ARQUIVOS: Record<
+  ArquivoPrincipal,
   { rotulo: string; sufixo: string; pdf: boolean }
 > = {
   danfe: { rotulo: "DANFE", sufixo: ".pdf", pdf: true },
@@ -322,46 +352,23 @@ function BotoesArquivos({
   nota: NotaFiscal;
   onErro: (mensagem: string) => void;
 }) {
-  const [baixando, setBaixando] = useState<ArquivoNotaFiscal | null>(null);
-  const arquivos: ArquivoNotaFiscal[] =
+  const [baixando, setBaixando] = useState<ArquivoPrincipal | null>(null);
+  const arquivos: ArquivoPrincipal[] =
     nota.status === "CANCELADA"
       ? ["danfe", "xml", "xml-cancelamento"]
       : ["danfe", "xml"];
 
-  async function baixar(arquivo: ArquivoNotaFiscal) {
+  async function baixar(arquivo: ArquivoPrincipal) {
     const { pdf, rotulo, sufixo } = ARQUIVOS[arquivo];
     onErro("");
-    // A aba do PDF é aberta já no clique, para não ser bloqueada pelo navegador.
-    const janela = pdf ? window.open("", "_blank") : null;
-    janela?.document.write(
-      `<title>${rotulo}</title><p style="font-family:sans-serif">Carregando ${rotulo}...</p>`,
-    );
     setBaixando(arquivo);
-    try {
-      const blob = await baixarArquivoNotaFiscal(nota.id, arquivo);
-      const url = URL.createObjectURL(blob);
-      if (janela) {
-        janela.location.href = url;
-      } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${nota.emissao.chave ?? `nota-${nota.id}`}${sufixo}`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (caught) {
-      janela?.close();
-      onErro(
-        mensagemErroFiscal(
-          caught,
-          `Não foi possível baixar o ${rotulo}. Tente novamente.`,
-        ),
-      );
-    } finally {
-      setBaixando(null);
-    }
+    const erro = await abrirArquivoNota(nota.id, arquivo, {
+      rotulo,
+      pdf,
+      nome: `${nota.emissao.chave ?? `nota-${nota.id}`}${sufixo}`,
+    });
+    setBaixando(null);
+    if (erro) onErro(erro);
   }
 
   return arquivos.map((arquivo) => (
