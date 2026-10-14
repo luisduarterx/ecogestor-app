@@ -673,3 +673,58 @@ export type ConfiguracaoSistemaResponse = ConfiguracaoSistemaCampos & {
 };
 export type AtualizarConfiguracaoSistemaInput =
   Partial<ConfiguracaoSistemaCampos>;
+
+// Módulo fiscal (contrato em api-ecogestor/docs/modulo-fiscal-frontend.md)
+export type StatusModuloFiscal = {
+  habilitado: boolean;
+  ambiente: "homologacao" | "producao" | null;
+};
+export type RegimeTributario =
+  "SIMPLES_NACIONAL" | "SIMPLES_EXCESSO_SUBLIMITE" | "REGIME_NORMAL" | "MEI";
+export type UsuarioResumo = { id: number; nome: string };
+export type ConfiguracaoFiscal = {
+  id: number;
+  regimeTributario: RegimeTributario | null;
+  naturezaPadraoID: number | null;
+  naturezaPadrao: { id: number; descricao: string } | null;
+  criadoEm: string;
+  atualizadoEm: string;
+  atualizadoPorID: number | null;
+  atualizadoPor: UsuarioResumo | null;
+};
+export type AtualizarConfiguracaoFiscalInput = {
+  regimeTributario?: RegimeTributario | null;
+  naturezaPadraoID?: number | null;
+};
+export type NaturezaOperacao = {
+  id: number;
+  descricao: string;
+  cfopDentroEstado: string;
+  cfopForaEstado: string | null;
+  icmsSituacaoTributaria: string;
+  icmsAliquota: number | null;
+  pisSituacaoTributaria: string;
+  pisAliquota: number | null;
+  cofinsSituacaoTributaria: string;
+  cofinsAliquota: number | null;
+  informacoesComplementares: string | null;
+  ativo: boolean;
+  padrao: boolean;
+  compativelComRegime: boolean | null;
+  criadoEm: string;
+  atualizadoEm: string;
+};
+export type NaturezaOperacaoInput = {
+  descricao: string;
+  cfopDentroEstado: string;
+  cfopForaEstado: string | null;
+  icmsSituacaoTributaria: string;
+  icmsAliquota: number | null;
+  pisSituacaoTributaria: string;
+  pisAliquota: number | null;
+  cofinsSituacaoTributaria: string;
+  cofinsAliquota: number | null;
+  informacoesComplementares: string | null;
+  ativo: boolean;
+};
+export type Cfop = { codigo: string; descricao: string };
