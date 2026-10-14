@@ -19,6 +19,7 @@ import { ProtectedRoute } from "./pages/ProtectedRoutes.tsx";
 import { Usuarios } from "./pages/usuarios/index.tsx";
 import { GuestRoute } from "./pages/GuestRoute.tsx";
 import { NotFound } from "./pages/not-found/index.tsx";
+import { Configuracoes } from "./pages/configuracoes/index.tsx";
 
 const router = createBrowserRouter([
   {
@@ -51,6 +52,10 @@ const router = createBrowserRouter([
       {
         path: "/registros",
         element: <Registro />,
+      },
+      {
+        path: "/configuracoes",
+        element: <Configuracoes />,
       },
       {
         path: "*",

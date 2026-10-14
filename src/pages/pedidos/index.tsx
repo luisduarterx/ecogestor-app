@@ -17,6 +17,7 @@ import PrintModalOrder from "../../components/modals/PrintModalOrder";
 import { useLoggedUser } from "../../context/useLoggedUser";
 import {
   useCancelOrder,
+  useConfiguracoesSistema,
   useCreateOrder,
   useOrders,
   useReopenOrder,
@@ -52,11 +53,15 @@ export function Pedidos() {
   } | null>(null);
   const [createOrderError, setCreateOrderError] = useState("");
   const [orderOpenNotice, setOrderOpenNotice] = useState("");
-  const [printOrderId, setPrintOrderId] = useState<number | null>(null);
+  const [printOrder, setPrintOrder] = useState<{
+    id: number;
+    imprimirAoAbrir: boolean;
+  } | null>(null);
   const { user } = useLoggedUser();
   const createOrder = useCreateOrder();
   const reopenOrder = useReopenOrder();
   const cancelOrder = useCancelOrder();
+  const configuracaoQuery = useConfiguracoesSistema();
   const ordersQuery = useOrders({
     tipo: typeFilter === "all" ? undefined : typeFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -476,7 +481,12 @@ export function Pedidos() {
                                 {/* View & print 80x40 receipt button */}
                                 <button
                                   type="button"
-                                  onClick={() => setPrintOrderId(order.id)}
+                                  onClick={() =>
+                                    setPrintOrder({
+                                      id: order.id,
+                                      imprimirAoAbrir: false,
+                                    })
+                                  }
                                   className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded-lg cursor-pointer transition-colors"
                                   title="Visualizar e Emitir Cupom Térmico 80x40"
                                 >
@@ -551,6 +561,9 @@ export function Pedidos() {
                 );
                 setActiveSubTab("list");
                 setCurrentOrder(null);
+                if (configuracaoQuery.data?.imprimirAutomaticamente) {
+                  setPrintOrder({ id: currentOrder.id, imprimirAoAbrir: true });
+                }
               }}
             />
           </div>
@@ -626,10 +639,11 @@ export function Pedidos() {
           </div>
         )}
 
-        {printOrderId !== null && (
+        {printOrder !== null && (
           <PrintModalOrder
-            orderId={printOrderId}
-            onClose={() => setPrintOrderId(null)}
+            orderId={printOrder.id}
+            imprimirAoAbrir={printOrder.imprimirAoAbrir}
+            onClose={() => setPrintOrder(null)}
           />
         )}
       </div>

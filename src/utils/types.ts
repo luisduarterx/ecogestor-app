@@ -632,3 +632,39 @@ export type SaveRoleInput = {
   nome: string;
   permissoes: number[];
 };
+export type FormatoImpressao = "CUPOM_80MM" | "FOLHA_A4";
+export type TipoDocumentoEmpresa = "CPF" | "CNPJ";
+export type ConfiguracaoSistemaCampos = {
+  razaoSocial: string | null;
+  nomeFantasia: string | null;
+  tipoDocumento: TipoDocumentoEmpresa | null;
+  documento: string | null;
+  inscricaoEstadual: string | null;
+  telefone: string | null;
+  email: string | null;
+  logotipoUrl: string | null;
+  cep: string | null;
+  estado: string | null;
+  cidade: string | null;
+  bairro: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  formatoImpressaoPadrao: FormatoImpressao;
+  mensagemCabecalho: string | null;
+  mensagemRodape: string | null;
+  exibirDadosEmpresa: boolean;
+  exibirOperador: boolean;
+  imprimirAutomaticamente: boolean;
+  permitirAlteracaoPrecoCompra: boolean;
+  permitirAlteracaoPrecoVenda: boolean;
+};
+export type ConfiguracaoSistemaResponse = ConfiguracaoSistemaCampos & {
+  id: number;
+  criadoEm: string;
+  atualizadoEm: string;
+  atualizadoPorID: number | null;
+  atualizadoPor: { id: number; nome: string } | null;
+};
+export type AtualizarConfiguracaoSistemaInput =
+  Partial<ConfiguracaoSistemaCampos>;
