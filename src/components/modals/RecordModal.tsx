@@ -3,10 +3,12 @@ import { Users, X, Check, ShieldAlert } from "lucide-react";
 import { motion } from "motion/react";
 import {
   useCreateRecord,
+  useStatusFiscal,
   useTables,
   useUpdateRecord,
 } from "../../utils/queries";
-import type { RecordResponse } from "../../utils/types";
+import type { IndicadorIE, RecordResponse } from "../../utils/types";
+import CamposFiscaisRegistro from "../fiscal/CamposFiscaisRegistro";
 
 interface RecordModalProps {
   setIsOpen: (value: boolean) => void;
@@ -55,6 +57,14 @@ export default function RecordModal({
   const [priceTableId, setPriceTableId] = useState(
     record ? String(record.tabela.id) : "",
   );
+  const [indicadorIE, setIndicadorIE] = useState<IndicadorIE | "">(
+    record?.indicadorIE ?? "",
+  );
+  const [ieFisica, setIeFisica] = useState(
+    record?.tipo === "FISICA" ? (record.ie ?? "") : "",
+  );
+  // Os dados fiscais só são enviados com o módulo fiscal ativo.
+  const fiscalAtivo = useStatusFiscal().data?.habilitado ?? false;
   const [formError, setFormError] = useState("");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -127,11 +137,13 @@ export default function RecordModal({
       if (record) {
         await updateRecord.mutateAsync({
           ...commonData,
+          ...(fiscalAtivo ? { indicadorIE: indicadorIE || null } : {}),
           ...(personType === "FISICA"
             ? {
                 fisica: {
                   cpf: normalizedDocument,
                   nascimento: birthDate || undefined,
+                  ...(fiscalAtivo ? { ie: ieFisica.trim() || null } : {}),
                 },
               }
             : {
@@ -145,10 +157,14 @@ export default function RecordModal({
         const createdRecord = await createRecord.mutateAsync({
           ...commonData,
           tipo: personType,
+          ...(fiscalAtivo && indicadorIE ? { indicadorIE } : {}),
           ...(personType === "FISICA"
             ? {
                 cpf: normalizedDocument,
                 nascimento: birthDate || undefined,
+                ...(fiscalAtivo && ieFisica.trim()
+                  ? { ie: ieFisica.trim() }
+                  : {}),
               }
             : {
                 cnpj: normalizedDocument,
@@ -351,6 +367,18 @@ export default function RecordModal({
               />
             </div>
           </div>
+
+          <CamposFiscaisRegistro
+            tipoPessoa={personType}
+            indicadorIE={indicadorIE}
+            onIndicadorIE={setIndicadorIE}
+            ieFisica={ieFisica}
+            onIeFisica={setIeFisica}
+            possuiIE={Boolean(
+              (personType === "FISICA" ? ieFisica : stateRegistration).trim(),
+            )}
+            classeCampo={inputClass}
+          />
 
           <div className="space-y-3 border-t border-slate-800 pt-4">
             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">

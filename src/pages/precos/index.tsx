@@ -29,8 +29,20 @@ import {
   useTables,
   useUpdateTable,
 } from "../../utils/queries";
-import type { ApiError, MaterialCategoryResponse } from "../../utils/types";
+import type {
+  ApiError,
+  DadosFiscaisMaterial,
+  MaterialCategoryResponse,
+} from "../../utils/types";
+
+const DADOS_FISCAIS_VAZIOS: DadosFiscaisMaterial = {
+  ncm: null,
+  cest: null,
+  origemMercadoria: null,
+};
 import EditMaterialModal from "../../components/modals/EditMaterialModal";
+import CamposFiscaisMaterial from "../../components/fiscal/CamposFiscaisMaterial";
+import { validarDadosFiscaisMaterial } from "../../utils/fiscal";
 import EditMaterialCategoryModal from "../../components/modals/EditMaterialCategoryModal";
 
 interface TableDraft {
@@ -67,6 +79,8 @@ export function Precos() {
   const [newMatMinStock, setNewMatMinStock] = useState("500");
   const [newMatMaxStock, setNewMatMaxStock] = useState("1000");
   const [newMatUnit, setNewMatUnit] = useState<"KG" | "LT" | "UN">("KG");
+  const [newMatFiscal, setNewMatFiscal] =
+    useState<DadosFiscaisMaterial>(DADOS_FISCAIS_VAZIOS);
   const [newMatColor, setNewMatColor] = useState("#10b981"); // Emerald 500 default
   const [newMatBuyPrice, setNewMatBuyPrice] = useState("");
   const [newMatSellPrice, setNewMatSellPrice] = useState("");
@@ -266,6 +280,12 @@ export function Precos() {
         return;
       }
 
+      const erroFiscal = validarDadosFiscaisMaterial(newMatFiscal);
+      if (erroFiscal) {
+        setMaterialFormError(erroFiscal);
+        return;
+      }
+
       const material = await createMaterial.mutateAsync({
         catID: categoryID,
         nome: newMatName.trim(),
@@ -274,6 +294,10 @@ export function Precos() {
         est_min: Number(newMatMinStock),
         est_max: Number(newMatMaxStock),
         unidade: newMatUnit,
+        // Envia apenas os dados fiscais preenchidos.
+        ...Object.fromEntries(
+          Object.entries(newMatFiscal).filter(([, valor]) => valor !== null),
+        ),
       });
 
       setNewMatName("");
@@ -282,6 +306,7 @@ export function Precos() {
       setNewMatMinStock("500");
       setNewMatMaxStock("1000");
       setNewMatUnit("KG");
+      setNewMatFiscal(DADOS_FISCAIS_VAZIOS);
       setCustomCategoryName("");
       setIsNewCategory(false);
       setMaterialFormSuccess(`Material ${material.nome} criado com sucesso.`);
@@ -758,6 +783,12 @@ export function Precos() {
                       />
                     </div>
                   </div>
+
+                  <CamposFiscaisMaterial
+                    dados={newMatFiscal}
+                    onChange={setNewMatFiscal}
+                    classeCampo="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
 
                   {/* Color label */}
                   <div>
