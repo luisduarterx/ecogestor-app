@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  LARGURA_A4_PAISAGEM_MM,
   getReceiptCss,
   type OrderReceiptData,
   type OrderReceiptTemplate,
@@ -35,6 +36,7 @@ export default function OrderReceipt({
   receiptId: string;
 }) {
   const isPurchase = data.type === "COMPRA";
+  const folhaA4 = template.paperWidthMm >= LARGURA_A4_PAISAGEM_MM;
 
   return (
     <article
@@ -42,7 +44,7 @@ export default function OrderReceipt({
       className="receipt bg-white p-4 font-mono text-[10px] leading-tight text-black shadow-sm"
       style={{ width: `${template.paperWidthMm}mm` }}
     >
-      <header className="receipt-center">
+      <header className="receipt-center receipt-header">
         {template.logoUrl && (
           <img
             src={template.logoUrl}
@@ -53,20 +55,22 @@ export default function OrderReceipt({
             }}
           />
         )}
-        {template.companyName && (
-          <h1 className="receipt-company">{template.companyName}</h1>
-        )}
-        {template.legalName && <div>{template.legalName}</div>}
-        {template.document && (
-          <div>
-            {template.documentLabel ?? "CNPJ/CPF"}: {template.document}
-          </div>
-        )}
-        {template.address && <div>{template.address}</div>}
-        {template.phone && <div>Telefone: {template.phone}</div>}
-        {template.headerLines?.map((line, index) => (
-          <div key={`${index}-${line}`}>{line}</div>
-        ))}
+        <div className="receipt-header-data">
+          {template.companyName && (
+            <h1 className="receipt-company">{template.companyName}</h1>
+          )}
+          {template.legalName && <div>{template.legalName}</div>}
+          {template.document && (
+            <div>
+              {template.documentLabel ?? "CNPJ/CPF"}: {template.document}
+            </div>
+          )}
+          {template.address && <div>{template.address}</div>}
+          {template.phone && <div>Telefone: {template.phone}</div>}
+          {template.headerLines?.map((line, index) => (
+            <div key={`${index}-${line}`}>{line}</div>
+          ))}
+        </div>
       </header>
 
       <div className="receipt-separator" />
@@ -74,32 +78,89 @@ export default function OrderReceipt({
         {isPurchase ? "CUPOM DE COMPRA" : "CUPOM DE VENDA"}
       </h2>
 
-      <section>
-        <div>PEDIDO: #{data.id}</div>
-        <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
-        {data.finalizedAt && (
-          <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>
-        )}
-        <div>STATUS: {data.status}</div>
-        <div>
-          {isPurchase ? "FORNECEDOR" : "CLIENTE"}: {data.partnerName}
-        </div>
-        {data.partnerDocument && <div>DOCUMENTO: {data.partnerDocument}</div>}
-        {template.showOperator !== false && (
-          <div>OPERADOR: {data.operatorName}</div>
-        )}
-      </section>
+      {folhaA4 ? (
+        <section className="receipt-info">
+          <div className="receipt-info-line">
+            <div className="receipt-strong">PEDIDO: #{data.id}</div>
+            <div>
+              {isPurchase ? "FORNECEDOR" : "CLIENTE"}: {data.partnerName}
+            </div>
+            {data.partnerDocument && (
+              <div>DOCUMENTO: {data.partnerDocument}</div>
+            )}
+            {data.partnerPhone && <div>TELEFONE: {data.partnerPhone}</div>}
+            {data.partnerAddress && <div>ENDEREÇO: {data.partnerAddress}</div>}
+          </div>
+          <div className="receipt-info-line">
+            <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
+            {data.finalizedAt && (
+              <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>
+            )}
+            <div>STATUS: {data.status}</div>
+            {template.showOperator !== false && (
+              <div>OPERADOR: {data.operatorName}</div>
+            )}
+          </div>
+        </section>
+      ) : (
+        <section>
+          <div>PEDIDO: #{data.id}</div>
+          <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
+          {data.finalizedAt && (
+            <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>
+          )}
+          <div>STATUS: {data.status}</div>
+          <div>
+            {isPurchase ? "FORNECEDOR" : "CLIENTE"}: {data.partnerName}
+          </div>
+          {data.partnerDocument && <div>DOCUMENTO: {data.partnerDocument}</div>}
+          {template.showOperator !== false && (
+            <div>OPERADOR: {data.operatorName}</div>
+          )}
+        </section>
+      )}
 
       <div className="receipt-separator" />
       <section>
-        <div className="receipt-row receipt-strong">
-          <span>DESCRIÇÃO</span>
-          <span>TOTAL</span>
-        </div>
+        {!folhaA4 && (
+          <div className="receipt-row receipt-strong">
+            <span>DESCRIÇÃO</span>
+            <span>TOTAL</span>
+          </div>
+        )}
         {data.items.length === 0 ? (
           <div className="receipt-center receipt-empty">
             Nenhum item lançado
           </div>
+        ) : folhaA4 ? (
+          <table className="receipt-table">
+            <thead>
+              <tr>
+                <th>MATERIAL</th>
+                <th>PESO BRUTO</th>
+                <th>TARA</th>
+                <th>DESCONTO</th>
+                <th>PESO LÍQUIDO</th>
+                <th>PREÇO/KG</th>
+                <th>TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((item) => (
+                <tr key={item.id}>
+                  <td className="receipt-strong">
+                    {item.description.toUpperCase()}
+                  </td>
+                  <td>{numberFormatter.format(item.grossWeight)} kg</td>
+                  <td>{numberFormatter.format(item.tare)} kg</td>
+                  <td>{numberFormatter.format(item.impurity)}%</td>
+                  <td>{numberFormatter.format(item.quantity)} kg</td>
+                  <td>{moneyFormatter.format(item.unitPrice)}</td>
+                  <td>{moneyFormatter.format(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : (
           data.items.map((item) => (
             <div className="receipt-item" key={item.id}>

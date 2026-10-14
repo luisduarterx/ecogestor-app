@@ -1,7 +1,11 @@
 import { motion } from "motion/react";
 import { Printer, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { useConfiguracoesSistema, useOrder } from "../../utils/queries";
+import {
+  useConfiguracoesSistema,
+  useOrder,
+  useRecord,
+} from "../../utils/queries";
 import { imprimirHtml } from "../../utils/impressao";
 import type { ApiError, ConfiguracaoSistemaResponse } from "../../utils/types";
 import { CupomAjustado } from "../OrderReceipt";
@@ -45,7 +49,14 @@ export default function PrintModalOrder({
   const orderQuery = useOrder(orderId);
   const configuracaoQuery = useConfiguracoesSistema();
   const receiptId = `order-receipt-${useId().replaceAll(":", "")}`;
-  const data = orderQuery.data ? orderToReceiptData(orderQuery.data) : null;
+  const cadastroQuery = useRecord(orderQuery.data?.regID);
+  // O cadastro completo complementa os dados do fornecedor/cliente; se não
+  // puder ser lido, o cupom sai apenas com os dados presentes no pedido.
+  const cadastroResolvido = !orderQuery.data?.regID || !cadastroQuery.isPending;
+  const data =
+    orderQuery.data && cadastroResolvido
+      ? orderToReceiptData(orderQuery.data, cadastroQuery.data)
+      : null;
   const template = resolverModeloCupom(
     configuracaoQuery.data,
     configuracaoQuery.error,

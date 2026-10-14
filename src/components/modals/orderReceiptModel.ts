@@ -1,6 +1,7 @@
 import type {
   ConfiguracaoSistemaCampos,
   OrderResponse,
+  RecordResponse,
   TipoDocumentoEmpresa,
 } from "../../utils/types";
 
@@ -42,6 +43,13 @@ export const MODELO_CUPOM_VAZIO: OrderReceiptTemplate = {
 type ReceiptItem = {
   id: number;
   description: string;
+  /** Peso bruto em kg. */
+  grossWeight: number;
+  /** Tara em kg. */
+  tare: number;
+  /** Desconto de impureza, em percentual. */
+  impurity: number;
+  /** Peso líquido em kg, após tara e impureza. */
   quantity: number;
   unitPrice: number;
   total: number;
@@ -55,13 +63,30 @@ export type OrderReceiptData = {
   finalizedAt?: string;
   partnerName: string;
   partnerDocument?: string;
+  partnerPhone?: string;
+  partnerAddress?: string;
   operatorName: string;
   items: ReceiptItem[];
   total: number;
 };
 
+function formatarEnderecoCadastro(
+  endereco: NonNullable<RecordResponse["endereco"]>,
+) {
+  const rua = [endereco.logradouro, endereco.numero].filter(Boolean).join(", ");
+  const cidade = [endereco.cidade, endereco.estado].filter(Boolean).join(" - ");
+  return (
+    [rua, endereco.complemento, endereco.bairro, cidade]
+      .filter(Boolean)
+      .join(" - ") || undefined
+  );
+}
+
 /** Adaptador isolado: permite trocar ou ampliar a origem dos dados. */
-export function orderToReceiptData(order: OrderResponse): OrderReceiptData {
+export function orderToReceiptData(
+  order: OrderResponse,
+  cadastro?: RecordResponse,
+): OrderReceiptData {
   const registro = order.registro as OrderResponse["registro"] & {
     documento?: string;
     cpf?: string;
@@ -76,12 +101,26 @@ export function orderToReceiptData(order: OrderResponse): OrderReceiptData {
     finalizedAt: order.finalizado_em,
     partnerName:
       order.registro?.nome_razao || order.registro?.apelido || "Não informado",
-    partnerDocument:
-      registro?.documento || registro?.cpf || registro?.cnpj || undefined,
+    partnerDocument: cadastro?.documento
+      ? formatarDocumentoEmpresa(
+          cadastro.documento,
+          cadastro.tipo === "FISICA" ? "CPF" : "CNPJ",
+        )
+      : registro?.documento || registro?.cpf || registro?.cnpj || undefined,
+    partnerPhone:
+      cadastro?.telefone ||
+      (registro as { telefone?: string } | null)?.telefone ||
+      undefined,
+    partnerAddress: cadastro?.endereco
+      ? formatarEnderecoCadastro(cadastro.endereco)
+      : undefined,
     operatorName: order.user?.nome || `Usuário #${order.userID}`,
     items: order.items.map((item) => ({
       id: item.id,
       description: item.material.nome,
+      grossWeight: item.pesoBruto,
+      tare: item.tara,
+      impurity: item.impureza,
       quantity: item.quantidade,
       unitPrice: item.preco,
       total: item.subtotal,
@@ -203,7 +242,14 @@ export function getReceiptCss(paperWidthMm: number, forPrint = false) {
   }
   .receipt h1, .receipt h2 { color: inherit; font-family: inherit; font-weight: 700; letter-spacing: normal; line-height: inherit; }
   .receipt-center { text-align: center; }
-  .receipt-logo { display: block; max-width: 60%; max-height: ${folhaA4 ? "25mm" : "18mm"}; margin: 0 auto 4px; object-fit: contain; }
+  .receipt-logo { display: block; max-width: 60%; max-height: 18mm; margin: 0 auto 4px; object-fit: contain; }
+  ${
+    folhaA4
+      ? `.receipt-header { display: flex; align-items: center; gap: 8mm; text-align: left; }
+  .receipt-header .receipt-logo { flex-shrink: 0; max-width: 60mm; max-height: 16mm; margin: 0; }
+  .receipt-header-data { flex: 1; min-width: 0; }`
+      : ""
+  }
   .receipt-company { margin: 0 0 2px; font-size: ${folhaA4 ? "20px" : "14px"}; text-transform: uppercase; }
   .receipt-title { margin: 5px 0; text-align: center; font-size: ${folhaA4 ? "16px" : "12px"}; }
   .receipt-separator { margin: 6px 0; border-top: 1px dashed #000; }
@@ -216,6 +262,12 @@ export function getReceiptCss(paperWidthMm: number, forPrint = false) {
   .receipt-footer { margin-top: 8px; font-size: ${folhaA4 ? "11px" : "9px"}; }
   .receipt-code { margin-top: 10px; font-weight: 700; letter-spacing: 2px; }
   .receipt-system { margin-top: 6px; }
+  .receipt-table { width: 100%; border-collapse: collapse; }
+  .receipt-table th, .receipt-table td { padding: 2px 4px; text-align: right; white-space: nowrap; }
+  .receipt-table th:first-child, .receipt-table td:first-child { text-align: left; white-space: normal; padding-left: 0; }
+  .receipt-table th:last-child, .receipt-table td:last-child { padding-right: 0; }
+  .receipt-table th { border-bottom: 1px dashed #000; }
+  ${folhaA4 ? ".receipt-info-line { display: flex; flex-wrap: wrap; column-gap: 8mm; row-gap: 2px; } .receipt-info-line + .receipt-info-line { margin-top: 3px; }" : ""}
   ${forPrint ? `${paginaImpressao} .receipt { box-shadow: none; }` : ""}
 `;
 }

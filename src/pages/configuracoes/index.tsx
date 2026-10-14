@@ -171,24 +171,33 @@ const PEDIDO_EXEMPLO: OrderReceiptData = {
   issuedAt: "2026-10-13T10:05:00",
   finalizedAt: "2026-10-13T10:15:00",
   partnerName: "Recicla Vale Ltda",
+  partnerDocument: "12.345.678/0001-95",
+  partnerPhone: "(21) 99999-0000",
+  partnerAddress: "Rua das Sucatas, 120 - Centro - Rio de Janeiro - RJ",
   operatorName: "Operador",
   items: [
     {
       id: 1,
       description: "PET Transparente",
-      quantity: 1250,
+      grossWeight: 1340,
+      tare: 40,
+      impurity: 5,
+      quantity: 1235,
       unitPrice: 2.1,
-      total: 2625,
+      total: 2593.5,
     },
     {
       id: 2,
       description: "Alumínio Latinha",
+      grossWeight: 215,
+      tare: 15,
+      impurity: 0,
       quantity: 200,
       unitPrice: 6.8,
       total: 1360,
     },
   ],
-  total: 3985,
+  total: 3953.5,
 };
 
 const CLASSE_CAMPO =
