@@ -9,6 +9,7 @@ import {
   X,
   ClipboardList,
   UserCog,
+  Settings,
 } from "lucide-react";
 import { ItemMenu } from "./ItemMenu";
 import { useNavigate } from "react-router";
@@ -74,6 +75,12 @@ export default function Sidebar({
       label: "Gestão de Usuários",
       icon: UserCog,
       link: "/usuarios",
+    },
+    {
+      id: "configuracoes",
+      label: "Configurações",
+      icon: Settings,
+      link: "/configuracoes",
     },
   ];
   const [activeTab, setActiveTab] = useState(tab);

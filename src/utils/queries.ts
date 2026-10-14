@@ -53,6 +53,8 @@ import {
   type UserManagementDetail,
   type UserManagementResponse,
   type UpdatedMaterialResponse,
+  type ConfiguracaoSistemaResponse,
+  type AtualizarConfiguracaoSistemaInput,
 } from "./types";
 import { api } from "./api";
 
@@ -1221,5 +1223,37 @@ export function useDeleteRole() {
     mutationFn: async (roleID) => (await api.delete(`/cargos/${roleID}`)).data,
     onSuccess: async () =>
       queryClient.invalidateQueries({ queryKey: ["cargos"] }),
+  });
+}
+
+export function useConfiguracoesSistema() {
+  return useQuery<ConfiguracaoSistemaResponse | null, ApiError>({
+    queryKey: ["configuracoes"],
+    queryFn: async () => {
+      try {
+        return (await api.get<ConfiguracaoSistemaResponse>("/configuracoes"))
+          .data;
+      } catch (caught) {
+        // A API retorna 404 enquanto a configuração inicial não foi criada.
+        if ((caught as ApiError).statusCode === 404) return null;
+        throw caught;
+      }
+    },
+  });
+}
+
+export function useAtualizarConfiguracoesSistema() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ConfiguracaoSistemaResponse,
+    ApiError,
+    AtualizarConfiguracaoSistemaInput
+  >({
+    mutationFn: async (input) =>
+      (await api.patch<ConfiguracaoSistemaResponse>("/configuracoes", input))
+        .data,
+    onSuccess: (configuracao) => {
+      queryClient.setQueryData(["configuracoes"], configuracao);
+    },
   });
 }

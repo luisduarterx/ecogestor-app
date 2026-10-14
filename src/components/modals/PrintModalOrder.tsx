@@ -2,10 +2,11 @@ import { motion } from "motion/react";
 import { Printer, X } from "lucide-react";
 import { useId } from "react";
 import { useOrder } from "../../utils/queries";
+import OrderReceipt from "../OrderReceipt";
 import {
   DEFAULT_ORDER_RECEIPT_TEMPLATE,
+  getReceiptCss,
   orderToReceiptData,
-  type OrderReceiptData,
   type OrderReceiptTemplate,
 } from "./orderReceiptModel";
 
@@ -13,146 +14,6 @@ interface PrintModalOrderProps {
   orderId: number;
   onClose: () => void;
   template?: OrderReceiptTemplate;
-}
-
-const moneyFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
-const numberFormatter = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 3,
-});
-
-function formatDate(value?: string) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function Receipt({
-  data,
-  template,
-  receiptId,
-}: {
-  data: OrderReceiptData;
-  template: OrderReceiptTemplate;
-  receiptId: string;
-}) {
-  const isPurchase = data.type === "COMPRA";
-
-  return (
-    <article
-      id={receiptId}
-      className="receipt bg-white p-4 font-mono text-[10px] leading-tight text-black shadow-sm"
-      style={{ width: `${template.paperWidthMm}mm` }}
-    >
-      <header className="receipt-center">
-        <h1 className="receipt-company">{template.companyName}</h1>
-        {template.legalName && <div>{template.legalName}</div>}
-        {template.document && <div>CNPJ/CPF: {template.document}</div>}
-        {template.address && <div>{template.address}</div>}
-        {template.phone && <div>Telefone: {template.phone}</div>}
-      </header>
-
-      <div className="receipt-separator" />
-      <h2 className="receipt-title">
-        {isPurchase ? "CUPOM DE COMPRA" : "CUPOM DE VENDA"}
-      </h2>
-
-      <section>
-        <div>PEDIDO: #{data.id}</div>
-        <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
-        {data.finalizedAt && (
-          <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>
-        )}
-        <div>STATUS: {data.status}</div>
-        <div>
-          {isPurchase ? "FORNECEDOR" : "CLIENTE"}: {data.partnerName}
-        </div>
-        {data.partnerDocument && <div>DOCUMENTO: {data.partnerDocument}</div>}
-        <div>OPERADOR: {data.operatorName}</div>
-      </section>
-
-      <div className="receipt-separator" />
-      <section>
-        <div className="receipt-row receipt-strong">
-          <span>DESCRIÇÃO</span>
-          <span>TOTAL</span>
-        </div>
-        {data.items.length === 0 ? (
-          <div className="receipt-center receipt-empty">
-            Nenhum item lançado
-          </div>
-        ) : (
-          data.items.map((item) => (
-            <div className="receipt-item" key={item.id}>
-              <div className="receipt-strong">
-                {item.description.toUpperCase()}
-              </div>
-              <div className="receipt-row">
-                <span>
-                  {numberFormatter.format(item.quantity)} kg ×{" "}
-                  {moneyFormatter.format(item.unitPrice)}
-                </span>
-                <span>{moneyFormatter.format(item.total)}</span>
-              </div>
-            </div>
-          ))
-        )}
-      </section>
-
-      <div className="receipt-separator" />
-      <div className="receipt-row receipt-total">
-        <span>TOTAL</span>
-        <span>{moneyFormatter.format(data.total)}</span>
-      </div>
-      <div className="receipt-separator" />
-
-      <footer className="receipt-center receipt-footer">
-        {template.footerLines.map((line) => (
-          <div key={line}>{line}</div>
-        ))}
-        <div className="receipt-code">
-          PED-{String(data.id).padStart(8, "0")}
-        </div>
-      </footer>
-    </article>
-  );
-}
-
-function getReceiptCss(paperWidthMm: number, forPrint = false) {
-  return `
-  ${forPrint ? '* { box-sizing: border-box; } html, body { margin: 0; padding: 0; background: white; color: black; } body { font-family: "Courier New", Courier, monospace; }' : ""}
-  .receipt {
-    box-sizing: border-box;
-    width: ${paperWidthMm}mm;
-    min-height: 110mm;
-    padding: 4mm;
-    overflow-wrap: anywhere;
-    background: #fff;
-    color: #000;
-    font-family: "Courier New", Courier, monospace;
-    font-size: 10px;
-    line-height: 1.25;
-  }
-  .receipt-center { text-align: center; }
-  .receipt-company { margin: 0 0 2px; font-size: 14px; text-transform: uppercase; }
-  .receipt-title { margin: 5px 0; text-align: center; font-size: 12px; }
-  .receipt-separator { margin: 6px 0; border-top: 1px dashed #000; }
-  .receipt-row { display: flex; justify-content: space-between; gap: 8px; }
-  .receipt-row span:last-child { flex-shrink: 0; }
-  .receipt-strong { font-weight: 700; }
-  .receipt-item { margin-top: 6px; page-break-inside: avoid; }
-  .receipt-empty { padding: 8px 0; }
-  .receipt-total { font-size: 13px; font-weight: 700; }
-  .receipt-footer { margin-top: 8px; font-size: 9px; }
-  .receipt-code { margin-top: 10px; font-weight: 700; letter-spacing: 2px; }
-  ${forPrint ? `@page { size: ${paperWidthMm}mm auto; margin: 0; } .receipt { box-shadow: none; }` : ""}
-`;
 }
 
 export default function PrintModalOrder({
@@ -234,7 +95,11 @@ export default function PrintModalOrder({
             </div>
           )}
           {data && (
-            <Receipt data={data} template={template} receiptId={receiptId} />
+            <OrderReceipt
+              data={data}
+              template={template}
+              receiptId={receiptId}
+            />
           )}
         </div>
 
