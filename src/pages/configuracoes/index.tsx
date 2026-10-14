@@ -92,8 +92,6 @@ const CAMPOS_BOOLEANOS = [
   "exibirDadosEmpresa",
   "exibirOperador",
   "imprimirAutomaticamente",
-  "permitirAlteracaoPrecoCompra",
-  "permitirAlteracaoPrecoVenda",
 ] as const satisfies readonly CampoBooleano[];
 
 // Valores padrão definidos no schema da API para a primeira configuração.
@@ -101,8 +99,6 @@ const PADROES_BOOLEANOS: Pick<ConfiguracaoSistemaCampos, CampoBooleano> = {
   exibirDadosEmpresa: true,
   exibirOperador: true,
   imprimirAutomaticamente: false,
-  permitirAlteracaoPrecoCompra: true,
-  permitirAlteracaoPrecoVenda: true,
 };
 
 const LIMITES_TEXTO: Record<(typeof CAMPOS_TEXTO)[number], number> = {
