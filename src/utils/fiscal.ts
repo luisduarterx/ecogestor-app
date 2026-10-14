@@ -2,7 +2,9 @@ import type {
   ApiError,
   DadosFiscaisMaterial,
   IndicadorIE,
+  ModalidadeFrete,
   OrigemMercadoria,
+  StatusNotaFiscal,
   RegimeTributario,
 } from "./types";
 
@@ -267,3 +269,97 @@ export function validarDadosFiscaisMaterial(dados: DadosFiscaisMaterial) {
     return "O CEST deve ter 7 dígitos.";
   return null;
 }
+
+export const ROTULOS_STATUS_NOTA: Record<StatusNotaFiscal, string> = {
+  RASCUNHO: "Rascunho",
+  PROCESSANDO: "Processando",
+  AUTORIZADA: "Autorizada",
+  REJEITADA: "Rejeitada",
+  DENEGADA: "Denegada",
+  CANCELADA: "Cancelada",
+};
+
+export const STATUS_NOTA = Object.keys(
+  ROTULOS_STATUS_NOTA,
+) as StatusNotaFiscal[];
+
+/** Classes do selo de status, nas cores sugeridas pelo guia da API. */
+export const CLASSES_STATUS_NOTA: Record<StatusNotaFiscal, string> = {
+  RASCUNHO: "border-slate-600 bg-slate-800 text-slate-300",
+  PROCESSANDO: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+  AUTORIZADA: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+  REJEITADA: "border-orange-500/30 bg-orange-500/10 text-orange-400",
+  DENEGADA: "border-rose-500/30 bg-rose-500/10 text-rose-400",
+  CANCELADA: "border-rose-900/60 bg-rose-950/40 text-rose-300 line-through",
+};
+
+/** A nota só pode ser editada nesses status. */
+export const notaEditavel = (status: StatusNotaFiscal) =>
+  status === "RASCUNHO" || status === "REJEITADA";
+
+export const ROTULOS_MODALIDADE_FRETE: Record<ModalidadeFrete, string> = {
+  EMITENTE: "Por conta do emitente (CIF)",
+  DESTINATARIO: "Por conta do destinatário (FOB)",
+  TERCEIROS: "Por conta de terceiros",
+  PROPRIO_EMITENTE: "Transporte próprio do emitente",
+  PROPRIO_DESTINATARIO: "Transporte próprio do destinatário",
+  SEM_FRETE: "Sem frete",
+};
+
+export const MODALIDADES_FRETE = Object.keys(
+  ROTULOS_MODALIDADE_FRETE,
+) as ModalidadeFrete[];
+
+export const UFS = [
+  "AC",
+  "AL",
+  "AM",
+  "AP",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MG",
+  "MS",
+  "MT",
+  "PA",
+  "PB",
+  "PE",
+  "PI",
+  "PR",
+  "RJ",
+  "RN",
+  "RO",
+  "RR",
+  "RS",
+  "SC",
+  "SE",
+  "SP",
+  "TO",
+];
+
+/** Formata CPF (11 dígitos) ou CNPJ (14 dígitos). */
+export function formatarCpfCnpj(valor: string | null) {
+  const digitos = somenteDigitos(valor ?? "");
+  if (digitos.length === 11)
+    return digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (digitos.length === 14)
+    return digitos.replace(
+      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+      "$1.$2.$3/$4-$5",
+    );
+  return valor ?? "";
+}
+
+export const formatarMoedaFiscal = (valor: number) =>
+  valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+export const formatarDataHoraFiscal = (valor: string | null) =>
+  valor
+    ? new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(valor))
+    : "—";

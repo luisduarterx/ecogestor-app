@@ -21,6 +21,7 @@ import { GuestRoute } from "./pages/GuestRoute.tsx";
 import { NotFound } from "./pages/not-found/index.tsx";
 import { Configuracoes } from "./pages/configuracoes/index.tsx";
 import { Fiscal } from "./pages/fiscal/index.tsx";
+import { NotaFiscalPagina } from "./pages/fiscal/NotaFiscalPagina.tsx";
 
 const router = createBrowserRouter([
   {
@@ -61,6 +62,10 @@ const router = createBrowserRouter([
       {
         path: "/fiscal",
         element: <Fiscal />,
+      },
+      {
+        path: "/fiscal/notas/:id",
+        element: <NotaFiscalPagina />,
       },
       {
         path: "*",

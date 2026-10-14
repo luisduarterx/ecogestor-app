@@ -748,3 +748,148 @@ export type NaturezaOperacaoInput = {
   ativo: boolean;
 };
 export type Cfop = { codigo: string; descricao: string };
+export type StatusNotaFiscal =
+  | "RASCUNHO"
+  | "PROCESSANDO"
+  | "AUTORIZADA"
+  | "REJEITADA"
+  | "DENEGADA"
+  | "CANCELADA";
+export type ModalidadeFrete =
+  | "EMITENTE"
+  | "DESTINATARIO"
+  | "TERCEIROS"
+  | "PROPRIO_EMITENTE"
+  | "PROPRIO_DESTINATARIO"
+  | "SEM_FRETE";
+export type DestinatarioNota = {
+  tipo: "FISICA" | "JURIDICA" | null;
+  nome: string | null;
+  documento: string | null;
+  indicadorIE: IndicadorIE | null;
+  ie: string | null;
+  email: string | null;
+  telefone: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  municipio: string | null;
+  uf: string | null;
+  cep: string | null;
+};
+export type TransportadoraNota = {
+  nome: string | null;
+  documento: string | null;
+  ie: string | null;
+  endereco: string | null;
+  municipio: string | null;
+  uf: string | null;
+};
+export type VeiculoNota = { placa: string | null; uf: string | null };
+export type TributacaoItemNota = {
+  cfop: string | null;
+  icmsSituacaoTributaria: string | null;
+  icmsAliquota: number | null;
+  pisSituacaoTributaria: string | null;
+  pisAliquota: number | null;
+  cofinsSituacaoTributaria: string | null;
+  cofinsAliquota: number | null;
+};
+export type ItemNotaFiscal = TributacaoItemNota & {
+  id: number;
+  numeroItem: number;
+  materialID: number;
+  descricao: string;
+  ncm: string | null;
+  cest: string | null;
+  origemMercadoria: OrigemMercadoria | null;
+  unidade: "KG" | "LT" | "UN";
+  quantidade: number;
+  valorUnitario: number;
+  valorBruto: number;
+};
+export type NotaFiscal = {
+  id: number;
+  status: StatusNotaFiscal;
+  emissao: {
+    ambiente: "HOMOLOGACAO" | "PRODUCAO" | null;
+    numero: number | null;
+    serie: number | null;
+    chave: string | null;
+    protocolo: string | null;
+    statusSefaz: string | null;
+    mensagemSefaz: string | null;
+    errosValidacao:
+      { codigo?: string; campo?: string; mensagem: string }[] | null;
+    emitidaEm: string | null;
+    autorizadaEm: string | null;
+    emitidaPor: UsuarioResumo | null;
+  };
+  cancelamento: {
+    canceladaEm: string | null;
+    justificativa: string | null;
+    protocolo: string | null;
+    canceladaPor: UsuarioResumo | null;
+  };
+  quantidadeCartasCorrecao: number;
+  naturezaOperacaoID: number | null;
+  naturezaOperacaoDescricao: string | null;
+  registroID: number | null;
+  destinatario: DestinatarioNota;
+  consumidorFinal: boolean;
+  modalidadeFrete: ModalidadeFrete;
+  transportadoraRegistroID: number | null;
+  transportadora: TransportadoraNota;
+  veiculo: VeiculoNota;
+  informacoesComplementares: string | null;
+  valorTotal: number;
+  itens: ItemNotaFiscal[];
+  criadoPor: UsuarioResumo;
+  criadoEm: string;
+  atualizadoEm: string;
+};
+export type NotaFiscalResumo = {
+  id: number;
+  status: StatusNotaFiscal;
+  numero: number | null;
+  serie: number | null;
+  autorizadaEm: string | null;
+  naturezaOperacaoDescricao: string | null;
+  registroID: number | null;
+  destinatarioNome: string | null;
+  destinatarioDocumento: string | null;
+  valorTotal: number;
+  quantidadeItens: number;
+  criadoEm: string;
+  atualizadoEm: string;
+};
+export type Paginado<T> = {
+  dados: T[];
+  paginacao: InventoryPagination;
+};
+export type FiltrosNotasFiscais = {
+  status?: StatusNotaFiscal;
+  registroID?: number;
+  dataInicial?: string;
+  dataFinal?: string;
+  pagina?: number;
+  limite?: number;
+};
+/** Corpo do PATCH do cabeçalho; apenas os campos alterados. */
+export type AtualizarNotaFiscalInput = {
+  naturezaOperacaoID?: number | null;
+  registroID?: number | null;
+  destinatario?: Partial<DestinatarioNota>;
+  consumidorFinal?: boolean;
+  modalidadeFrete?: ModalidadeFrete;
+  transportadoraRegistroID?: number | null;
+  transportadora?: Partial<TransportadoraNota>;
+  veiculo?: Partial<VeiculoNota>;
+  informacoesComplementares?: string | null;
+};
+export type ItemNotaFiscalInput = {
+  materialID: number;
+  quantidade: number;
+  valorUnitario: number;
+} & Partial<TributacaoItemNota>;
