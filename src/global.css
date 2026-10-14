@@ -105,3 +105,20 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Telas de toque (tablets e celulares) */
+@media (pointer: coarse) {
+  /* Evita o zoom automático do iPad/Safari ao tocar em campos com fonte < 16px */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Remove o atraso do toque duplo nos botões */
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
