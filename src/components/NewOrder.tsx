@@ -72,6 +72,18 @@ function valorMonetario(valor: string | null) {
   return Number(valor.replace(",", "."));
 }
 
+// Mantém só dígitos e um separador decimal (vírgula ou ponto).
+// Usado nos campos numéricos para funcionar com o teclado de tablets em pt-BR.
+function apenasDecimal(valor: string) {
+  const limpo = valor.replace(/[^\d.,]/g, "");
+  const separador = limpo.search(/[.,]/);
+  if (separador === -1) return limpo;
+  return (
+    limpo.slice(0, separador + 1) +
+    limpo.slice(separador + 1).replace(/[.,]/g, "")
+  );
+}
+
 export default function NewOrder({
   pedidoID,
   tipo,
@@ -299,10 +311,10 @@ export default function NewOrder({
 
     const item = {
       materialID: Number(materialID),
-      pesoBruto: Number(pesoBruto),
-      tara: Number(tara),
-      impureza: Number(impureza),
-      preco: Number(preco),
+      pesoBruto: valorMonetario(pesoBruto),
+      tara: valorMonetario(tara),
+      impureza: valorMonetario(impureza),
+      preco: valorMonetario(preco),
     };
 
     if (
@@ -515,7 +527,7 @@ export default function NewOrder({
                 type="button"
                 onClick={() => setIsRecordModalOpen(true)}
                 disabled={pedido.status !== "ABERTO"}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 min-h-11 px-4 py-2 text-xs font-bold uppercase text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <UserPlus className="h-3.5 w-3.5" />
                 Novo cliente / fornecedor
@@ -539,7 +551,7 @@ export default function NewOrder({
                   definirRegistro.isPending || pedido.status !== "ABERTO"
                 }
                 placeholder="Digite o nome, apelido, CPF ou CNPJ"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               />
               {recordSearchTouched && (
                 <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl">
@@ -565,12 +577,12 @@ export default function NewOrder({
                           setRecordSearchTouched(false);
                           void alterarRegistro(String(registro.id));
                         }}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800"
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-slate-300 hover:bg-slate-800"
                       >
                         <span className="font-semibold">
                           {registro.apelido || registro.nome}
                         </span>
-                        <span className="font-mono text-[10px] text-slate-500">
+                        <span className="font-mono text-xs text-slate-500">
                           {registro.documento}
                         </span>
                       </button>
@@ -592,7 +604,7 @@ export default function NewOrder({
                     setRecordSearchTouched(true);
                     void alterarRegistro("");
                   }}
-                  className="mt-2 text-[10px] font-bold uppercase text-rose-400 hover:text-rose-300"
+                  className="mt-2 min-h-11 px-1 text-xs font-bold uppercase text-rose-400 hover:text-rose-300"
                 >
                   Remover registro vinculado
                 </button>
@@ -610,7 +622,7 @@ export default function NewOrder({
               onSubmit={(event) => void incluirItem(event)}
               className="grid grid-cols-1 items-end gap-3 md:grid-cols-6"
             >
-              <label className="relative md:col-span-2 text-[10px] font-bold uppercase text-slate-400">
+              <label className="relative md:col-span-2 text-xs font-bold uppercase text-slate-400">
                 Material
                 <input
                   ref={materialInputRef}
@@ -623,7 +635,7 @@ export default function NewOrder({
                     setPreco("");
                   }}
                   placeholder="Digite o material ou categoria"
-                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-200"
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
                 />
                 {materialSearch && !materialID && (
                   <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl">
@@ -637,7 +649,7 @@ export default function NewOrder({
                           );
                           selecionarMaterial(String(material.id));
                         }}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs normal-case text-slate-300 hover:bg-slate-800"
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm normal-case text-slate-300 hover:bg-slate-800"
                       >
                         <span className="font-semibold">{material.nome}</span>
                       </button>
@@ -650,59 +662,74 @@ export default function NewOrder({
                   </div>
                 )}
               </label>
-              <label className="text-[10px] font-bold uppercase text-slate-400">
+              <label className="text-xs font-bold uppercase text-slate-400">
                 Peso bruto (kg)
                 <input
                   required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0,00"
                   value={pesoBruto}
-                  onChange={(event) => setPesoBruto(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
+                  onChange={(event) =>
+                    setPesoBruto(apenasDecimal(event.target.value))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-100"
                 />
               </label>
-              <label className="text-[10px] font-bold uppercase text-slate-400">
+              <label className="text-xs font-bold uppercase text-slate-400">
                 Tara (kg)
                 <input
                   required
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0,00"
                   value={tara}
-                  onChange={(event) => setTara(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
+                  onChange={(event) =>
+                    setTara(apenasDecimal(event.target.value))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-100"
                 />
               </label>
-              <label className="text-[10px] font-bold uppercase text-slate-400">
+              <label className="text-xs font-bold uppercase text-slate-400">
                 Impureza (%)
                 <input
                   required
-                  type="number"
-                  min="0"
-                  max="99.99"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0,00"
                   value={impureza}
-                  onChange={(event) => setImpureza(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
+                  onChange={(event) =>
+                    setImpureza(apenasDecimal(event.target.value))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-100"
                 />
               </label>
-              <label className="text-[10px] font-bold uppercase text-slate-400">
+              <label className="text-xs font-bold uppercase text-slate-400">
                 Preço / kg
                 <input
                   required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0,00"
                   value={preco}
-                  onChange={(event) => setPreco(event.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-100"
+                  onChange={(event) =>
+                    setPreco(apenasDecimal(event.target.value))
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-100"
                 />
               </label>
               <button
                 type="submit"
                 disabled={adicionarItem.isPending || pedido.status !== "ABERTO"}
-                className="md:col-span-6 flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-bold uppercase text-slate-950 disabled:opacity-50"
+                className="md:col-span-6 flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3.5 text-sm font-bold uppercase text-slate-950 disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
                 {adicionarItem.isPending ? "Incluindo..." : "Incluir no pedido"}
@@ -710,7 +737,7 @@ export default function NewOrder({
             </form>
 
             <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800">
-              <table className="w-full text-left text-xs text-slate-400">
+              <table className="w-full text-left text-sm text-slate-400">
                 <thead className="border-b border-slate-800 bg-slate-950/30 font-mono uppercase text-slate-500">
                   <tr>
                     <th className="p-3">Material</th>
@@ -747,7 +774,7 @@ export default function NewOrder({
                             removerItem.isPending || pedido.status !== "ABERTO"
                           }
                           title="Remover item"
-                          className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -841,14 +868,14 @@ export default function NewOrder({
         <form onSubmit={(event) => void finalizar(event)} className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold uppercase text-slate-400">
+              <span className="text-xs font-bold uppercase text-slate-400">
                 Títulos, valores e vencimentos
               </span>
               <button
                 type="button"
                 onClick={adicionarTitulo}
                 disabled={titulosDoPedido.length >= 12}
-                className="flex items-center gap-1 rounded-lg border border-emerald-500/30 px-2 py-1.5 text-[10px] font-bold uppercase text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-1 rounded-lg border border-emerald-500/30 min-h-11 px-3 py-2 text-xs font-bold uppercase text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Adicionar título
@@ -860,7 +887,7 @@ export default function NewOrder({
                 className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                  <span className="text-xs font-bold uppercase text-slate-400">
                     Título {indice + 1}
                   </span>
                   {titulosDoPedido.length > 1 && (
@@ -868,33 +895,37 @@ export default function NewOrder({
                       type="button"
                       onClick={() => removerTitulo(item.id)}
                       aria-label={`Remover título ${indice + 1}`}
-                      className="rounded-md p-1 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <label className="text-[10px] font-semibold text-slate-400">
+                  <label className="text-xs font-semibold text-slate-400">
                     Valor (R$)
                     <input
                       required
-                      type="number"
-                      min="0.01"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="0,00"
                       value={
                         item.valor === null
                           ? pedido.valor_total.toFixed(2)
                           : item.valor
                       }
                       onChange={(event) =>
-                        alterarTitulo(item.id, "valor", event.target.value)
+                        alterarTitulo(
+                          item.id,
+                          "valor",
+                          apenasDecimal(event.target.value),
+                        )
                       }
-                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-xs text-slate-200"
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
                     />
                   </label>
-                  <label className="text-[10px] font-semibold text-slate-400">
+                  <label className="text-xs font-semibold text-slate-400">
                     Vencimento
                     <input
                       required
@@ -903,7 +934,7 @@ export default function NewOrder({
                       onChange={(event) =>
                         alterarTitulo(item.id, "vencimento", event.target.value)
                       }
-                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-xs text-slate-200"
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
                     />
                   </label>
                 </div>
@@ -911,9 +942,10 @@ export default function NewOrder({
             ))}
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex min-h-11 items-center gap-3 text-sm text-slate-300">
             <input
               type="checkbox"
+              className="h-5 w-5 accent-emerald-400"
               checked={baixarAgora}
               onChange={(event) => {
                 setBaixarAgora(event.target.checked);
@@ -924,13 +956,13 @@ export default function NewOrder({
           </label>
 
           {baixarAgora && (
-            <label className="block text-[10px] font-bold uppercase text-slate-400">
+            <label className="block text-xs font-bold uppercase text-slate-400">
               Conta financeira
               <select
                 required
                 value={contaSelecionadaID}
                 onChange={(event) => setContaID(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300"
+                className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300"
               >
                 <option value="">Selecione</option>
                 {(contasQuery.data ?? []).map((conta) => (
@@ -948,7 +980,7 @@ export default function NewOrder({
           <button
             type="submit"
             disabled={finalizarPedido.isPending || pedido.status !== "ABERTO"}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-400 py-3 text-xs font-bold uppercase text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-400 py-4 text-sm font-bold uppercase text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4.5 w-4.5" />
             {finalizarPedido.isPending
@@ -991,7 +1023,7 @@ export default function NewOrder({
                 type="button"
                 disabled={aplicarTabelaDoRegistro.isPending}
                 onClick={() => setIsTableConfirmationOpen(false)}
-                className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold uppercase text-slate-300 disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-slate-800 px-4 py-3 text-xs font-bold uppercase text-slate-300 disabled:opacity-50"
               >
                 Manter preços
               </button>
@@ -999,7 +1031,7 @@ export default function NewOrder({
                 type="button"
                 disabled={aplicarTabelaDoRegistro.isPending}
                 onClick={() => void confirmarAtualizacaoDePrecos()}
-                className="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-bold uppercase text-slate-950 disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-emerald-400 px-4 py-3 text-xs font-bold uppercase text-slate-950 disabled:opacity-50"
               >
                 {aplicarTabelaDoRegistro.isPending
                   ? "Atualizando..."
