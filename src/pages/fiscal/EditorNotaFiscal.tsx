@@ -103,6 +103,21 @@ export default function EditorNotaFiscal({
     cabecalhoDaNota(nota),
   );
   const [linhas, setLinhas] = useState<LinhaItem[]>(() => linhasDaNota(nota));
+
+  // A nota pode chegar atualizada depois da montagem (cache antigo,
+  // acompanhamento ou sincronização). Sem edição do usuário, o formulário
+  // passa a refletir a versão nova.
+  const [notaBase, setNotaBase] = useState(nota);
+  if (notaBase !== nota) {
+    setNotaBase(nota);
+    const semEdicao =
+      Object.keys(alteracoesCabecalho(formulario, notaBase)).length === 0 &&
+      !itensAlterados(linhas, notaBase);
+    if (semEdicao) {
+      setFormulario(cabecalhoDaNota(nota));
+      setLinhas(linhasDaNota(nota));
+    }
+  }
   const [erros, setErros] = useState<ErrosFormulario | null>(null);
   const [erroEnvio, setErroEnvio] = useState("");
   const [confirmacao, setConfirmacao] = useState<Confirmacao>(null);
