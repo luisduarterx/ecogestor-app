@@ -10,10 +10,12 @@ import {
   ClipboardList,
   UserCog,
   Settings,
+  Receipt,
 } from "lucide-react";
 import { ItemMenu } from "./ItemMenu";
 import { useNavigate } from "react-router";
 import { useState } from "react";
+import { useStatusFiscal } from "../utils/queries";
 
 interface SidebarProps {
   tab: string;
@@ -32,6 +34,7 @@ export default function Sidebar({
   tab,
 }: SidebarProps) {
   const navigate = useNavigate();
+  const statusFiscalQuery = useStatusFiscal();
   const menuItems = [
     {
       id: "dashboard",
@@ -64,6 +67,17 @@ export default function Sidebar({
       icon: DollarSign,
       link: "/financeiro",
     },
+    // O menu Fiscal só aparece com o módulo contratado e ativo.
+    ...(statusFiscalQuery.data?.habilitado
+      ? [
+          {
+            id: "fiscal",
+            label: "Fiscal",
+            icon: Receipt,
+            link: "/fiscal",
+          },
+        ]
+      : []),
     {
       id: "registros",
       label: "Clientes e Fornecedores",

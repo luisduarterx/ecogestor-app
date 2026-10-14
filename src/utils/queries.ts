@@ -56,6 +56,12 @@ import {
   type UpdatedMaterialResponse,
   type ConfiguracaoSistemaResponse,
   type AtualizarConfiguracaoSistemaInput,
+  type AtualizarConfiguracaoFiscalInput,
+  type Cfop,
+  type ConfiguracaoFiscal,
+  type NaturezaOperacao,
+  type NaturezaOperacaoInput,
+  type StatusModuloFiscal,
 } from "./types";
 import { api } from "./api";
 
@@ -1326,4 +1332,116 @@ export async function buscarRegistrosRelatorio<T>(
     aoProgredir?.(dados.length, total);
   }
   return { total, dados };
+}
+
+// ---------------------------------------------------------------------------
+// Módulo fiscal
+// ---------------------------------------------------------------------------
+
+/** Indica se o módulo fiscal está ativo nesta instância e o ambiente. */
+export function useStatusFiscal() {
+  return useQuery<StatusModuloFiscal, ApiError>({
+    queryKey: ["fiscal", "status"],
+    staleTime: 10 * 60_000,
+    queryFn: async () =>
+      (await api.get<StatusModuloFiscal>("/fiscal/status")).data,
+  });
+}
+
+export function useConfiguracaoFiscal() {
+  return useQuery<ConfiguracaoFiscal | null, ApiError>({
+    queryKey: ["fiscal", "configuracao"],
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () => {
+      try {
+        return (await api.get<ConfiguracaoFiscal>("/fiscal/configuracao")).data;
+      } catch (caught) {
+        // A API retorna 404 enquanto a configuração fiscal não foi salva.
+        if ((caught as ApiError).statusCode === 404) return null;
+        throw caught;
+      }
+    },
+  });
+}
+
+export function useAtualizarConfiguracaoFiscal() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ConfiguracaoFiscal,
+    ApiError,
+    AtualizarConfiguracaoFiscalInput
+  >({
+    mutationFn: async (input) =>
+      (await api.patch<ConfiguracaoFiscal>("/fiscal/configuracao", input)).data,
+    onSuccess: async (configuracao) => {
+      queryClient.setQueryData(["fiscal", "configuracao"], configuracao);
+      // O selo "Padrão" e a compatibilidade com o regime vêm nas naturezas.
+      await queryClient.invalidateQueries({
+        queryKey: ["fiscal", "naturezas"],
+      });
+    },
+  });
+}
+
+export function useNaturezasOperacao(ativo?: boolean) {
+  return useQuery<NaturezaOperacao[], ApiError>({
+    queryKey: ["fiscal", "naturezas", { ativo }],
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () =>
+      (
+        await api.get<NaturezaOperacao[]>("/fiscal/naturezas-operacao", {
+          params: { ativo },
+        })
+      ).data,
+  });
+}
+
+export function useSalvarNaturezaOperacao(naturezaID?: number) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    NaturezaOperacao,
+    ApiError,
+    Partial<NaturezaOperacaoInput>
+  >({
+    mutationFn: async (input) =>
+      (naturezaID
+        ? await api.patch<NaturezaOperacao>(
+            `/fiscal/naturezas-operacao/${naturezaID}`,
+            input,
+          )
+        : await api.post<NaturezaOperacao>("/fiscal/naturezas-operacao", input)
+      ).data,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["fiscal", "naturezas"] }),
+  });
+}
+
+export function useExcluirNaturezaOperacao() {
+  const queryClient = useQueryClient();
+  return useMutation<{ id: number }, ApiError, number>({
+    mutationFn: async (naturezaID) =>
+      (
+        await api.delete<{ id: number }>(
+          `/fiscal/naturezas-operacao/${naturezaID}`,
+        )
+      ).data,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["fiscal", "naturezas"] }),
+  });
+}
+
+/** Busca na tabela oficial de CFOP (somente leitura). */
+export function useCfops(busca: string, tipo: "saida" | "entrada" = "saida") {
+  const termo = busca.trim();
+  return useQuery<Cfop[], ApiError>({
+    queryKey: ["fiscal", "cfops", tipo, termo],
+    enabled: termo.length > 0,
+    staleTime: Infinity,
+    queryFn: async () =>
+      (
+        await api.get<Cfop[]>("/fiscal/cfops", {
+          params: { busca: termo, tipo },
+        })
+      ).data,
+  });
 }
