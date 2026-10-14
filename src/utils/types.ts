@@ -301,6 +301,23 @@ export type ItemOrderResponse = {
     status: boolean,
   ];
 };
+export type OrigemMercadoria =
+  | "NACIONAL"
+  | "ESTRANGEIRA_IMPORTACAO_DIRETA"
+  | "ESTRANGEIRA_MERCADO_INTERNO"
+  | "NACIONAL_IMPORTADO_40_70"
+  | "NACIONAL_PROCESSO_BASICO"
+  | "NACIONAL_IMPORTADO_ATE_40"
+  | "ESTRANGEIRA_DIRETA_SEM_SIMILAR"
+  | "ESTRANGEIRA_INTERNO_SEM_SIMILAR"
+  | "NACIONAL_IMPORTADO_ACIMA_70";
+export type IndicadorIE = "CONTRIBUINTE" | "ISENTO" | "NAO_CONTRIBUINTE";
+/** Dados fiscais do material, usados na emissão de NF-e. */
+export type DadosFiscaisMaterial = {
+  ncm: string | null;
+  cest: string | null;
+  origemMercadoria: OrigemMercadoria | null;
+};
 export type MaterialResponse = {
   id: number;
   nome: string;
@@ -316,7 +333,7 @@ export type MaterialResponse = {
     id: number;
     nome: string;
   };
-};
+} & Partial<DadosFiscaisMaterial>;
 export type UpdatedMaterialResponse = {
   id: number;
   nome: string;
@@ -331,7 +348,7 @@ export type UpdatedMaterialResponse = {
     id: number;
     nome: string;
   };
-};
+} & Partial<DadosFiscaisMaterial>;
 export type MaterialCategoryResponse = {
   id: number;
   nome: string;
@@ -348,7 +365,7 @@ export type CreateMaterialInput = {
   est_min: number;
   est_max: number;
   unidade: "KG" | "LT" | "UN";
-};
+} & Partial<DadosFiscaisMaterial>;
 export type UpdateMaterialInput = Partial<CreateMaterialInput> & {
   status?: boolean;
 };
@@ -358,6 +375,7 @@ export type RecordResponse = {
   apelido?: string;
   documento: string;
   ie?: string | null;
+  indicadorIE?: IndicadorIE | null;
   nascimento?: string | null;
   criado_em: string;
   tabela: { id: number; nome: string; padrao: boolean };
@@ -414,6 +432,7 @@ export type CreateRecordInput = {
   cnpj?: string;
   nascimento?: string;
   ie?: string;
+  indicadorIE?: IndicadorIE;
   apelido?: string;
   email?: string;
   telefone?: string;
@@ -443,7 +462,8 @@ export type UpdateRecordInput = {
   telefone?: string;
   pagamento?: CreateRecordInput["pagamento"];
   endereco?: CreateRecordInput["endereco"];
-  fisica?: { cpf?: string; nascimento?: string };
+  indicadorIE?: IndicadorIE | null;
+  fisica?: { cpf?: string; nascimento?: string; ie?: string | null };
   juridica?: { cnpj: string; ie?: string };
 };
 export type TablesResponse = {

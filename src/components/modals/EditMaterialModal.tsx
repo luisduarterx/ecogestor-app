@@ -2,6 +2,8 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { Edit3, X } from "lucide-react";
 
+import CamposFiscaisMaterial from "../fiscal/CamposFiscaisMaterial";
+import { validarDadosFiscaisMaterial } from "../../utils/fiscal";
 import {
   useMaterial,
   useMaterialCategories,
@@ -9,6 +11,7 @@ import {
 } from "../../utils/queries";
 import type {
   ApiError,
+  DadosFiscaisMaterial,
   MaterialResponse,
   UpdateMaterialInput,
 } from "../../utils/types";
@@ -82,6 +85,11 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
   );
   const [editUnit, setEditUnit] = useState(material.unidade);
   const [editMaterialStatus, setEditMaterialStatus] = useState(material.status);
+  const [fiscal, setFiscal] = useState<DadosFiscaisMaterial>({
+    ncm: material.ncm ?? null,
+    cest: material.cest ?? null,
+    origemMercadoria: material.origemMercadoria ?? null,
+  });
   const [editError, setEditError] = useState("");
   const updateMaterial = useUpdateMaterial(material.id);
 
@@ -103,6 +111,12 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
       return;
     }
 
+    const erroFiscal = validarDadosFiscaisMaterial(fiscal);
+    if (erroFiscal) {
+      setEditError(erroFiscal);
+      return;
+    }
+
     const name = editMaterialName.trim();
     const categoryID = Number(editMaterialCategory);
     const sellPrice = Number(editSellPrice);
@@ -116,6 +130,10 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
     if (minStock !== (material.est_min ?? 0)) changes.est_min = minStock;
     if (maxStock !== (material.est_max ?? 0)) changes.est_max = maxStock;
     if (editUnit !== material.unidade) changes.unidade = editUnit;
+    if (fiscal.ncm !== (material.ncm ?? null)) changes.ncm = fiscal.ncm;
+    if (fiscal.cest !== (material.cest ?? null)) changes.cest = fiscal.cest;
+    if (fiscal.origemMercadoria !== (material.origemMercadoria ?? null))
+      changes.origemMercadoria = fiscal.origemMercadoria;
     if (editMaterialStatus !== material.status) {
       changes.status = editMaterialStatus;
     }
@@ -144,7 +162,7 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-md overflow-hidden shadow-2xl"
+        className="bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-md max-h-[92vh] overflow-y-auto shadow-2xl"
       >
         <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/20 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -257,6 +275,12 @@ function EditMaterialForm({ material, setIsOpen }: EditMaterialFormProps) {
               />
             </div>
           </div>
+
+          <CamposFiscaisMaterial
+            dados={fiscal}
+            onChange={setFiscal}
+            classeCampo="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          />
 
           <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 p-3">
             <div>

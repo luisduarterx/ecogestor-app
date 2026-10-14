@@ -1,4 +1,10 @@
-import type { ApiError, RegimeTributario } from "./types";
+import type {
+  ApiError,
+  DadosFiscaisMaterial,
+  IndicadorIE,
+  OrigemMercadoria,
+  RegimeTributario,
+} from "./types";
 
 /** Código fiscal com descrição e indicação de suporte na emissão da V1. */
 export type CodigoFiscal = {
@@ -16,6 +22,53 @@ export const ROTULOS_REGIME: Record<RegimeTributario, string> = {
 };
 
 export const REGIMES = Object.keys(ROTULOS_REGIME) as RegimeTributario[];
+
+export const ROTULOS_ORIGEM_MERCADORIA: Record<OrigemMercadoria, string> = {
+  NACIONAL: "0 — Nacional",
+  ESTRANGEIRA_IMPORTACAO_DIRETA: "1 — Estrangeira, importação direta",
+  ESTRANGEIRA_MERCADO_INTERNO: "2 — Estrangeira, adquirida no mercado interno",
+  NACIONAL_IMPORTADO_40_70:
+    "3 — Nacional, conteúdo de importação entre 40% e 70%",
+  NACIONAL_PROCESSO_BASICO:
+    "4 — Nacional, produção conforme processo produtivo básico",
+  NACIONAL_IMPORTADO_ATE_40: "5 — Nacional, conteúdo de importação até 40%",
+  ESTRANGEIRA_DIRETA_SEM_SIMILAR:
+    "6 — Estrangeira, importação direta, sem similar nacional",
+  ESTRANGEIRA_INTERNO_SEM_SIMILAR:
+    "7 — Estrangeira, mercado interno, sem similar nacional",
+  NACIONAL_IMPORTADO_ACIMA_70:
+    "8 — Nacional, conteúdo de importação acima de 70%",
+};
+
+export const ORIGENS_MERCADORIA = Object.keys(
+  ROTULOS_ORIGEM_MERCADORIA,
+) as OrigemMercadoria[];
+
+export const ROTULOS_INDICADOR_IE: Record<IndicadorIE, string> = {
+  CONTRIBUINTE: "Contribuinte do ICMS (tem IE)",
+  ISENTO: "Contribuinte isento de inscrição",
+  NAO_CONTRIBUINTE: "Não contribuinte (consumidor final)",
+};
+
+export const INDICADORES_IE = Object.keys(
+  ROTULOS_INDICADOR_IE,
+) as IndicadorIE[];
+
+export const somenteDigitos = (valor: string) => valor.replace(/\D/g, "");
+
+/** NCM: 8 dígitos exibidos como 0000.00.00. */
+export const formatarNcm = (valor: string) =>
+  somenteDigitos(valor)
+    .slice(0, 8)
+    .replace(/^(\d{4})(\d)/, "$1.$2")
+    .replace(/^(\d{4})\.(\d{2})(\d)/, "$1.$2.$3");
+
+/** CEST: 7 dígitos exibidos como 00.000.00. */
+export const formatarCest = (valor: string) =>
+  somenteDigitos(valor)
+    .slice(0, 7)
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
 
 /** CSOSN: Simples Nacional e MEI. */
 export const CSOSN: CodigoFiscal[] = [
@@ -205,4 +258,12 @@ export function mensagemErroFiscal(erro: unknown, padrao: string) {
     );
   }
   return apiErro?.mensagem ?? padrao;
+}
+
+/** Valida os dados fiscais do material; vazios são aceitos no cadastro. */
+export function validarDadosFiscaisMaterial(dados: DadosFiscaisMaterial) {
+  if (dados.ncm && dados.ncm.length !== 8) return "O NCM deve ter 8 dígitos.";
+  if (dados.cest && dados.cest.length !== 7)
+    return "O CEST deve ter 7 dígitos.";
+  return null;
 }
