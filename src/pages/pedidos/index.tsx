@@ -8,6 +8,7 @@ import {
   Edit,
   Plus,
   Printer,
+  Receipt,
   RefreshCw,
   Search,
   X,
@@ -15,9 +16,13 @@ import {
 import NewOrder from "../../components/NewOrder";
 import PrintModalOrder from "../../components/modals/PrintModalOrder";
 import { useLoggedUser } from "../../context/useLoggedUser";
+import { useNavigate } from "react-router";
+import { mensagemErroFiscal } from "../../utils/fiscal";
 import {
   useCancelOrder,
   useConfiguracoesSistema,
+  useImportarPedidoNotaFiscal,
+  useStatusFiscal,
   useCreateOrder,
   useOrders,
   useReopenOrder,
@@ -62,6 +67,25 @@ export function Pedidos() {
   const reopenOrder = useReopenOrder();
   const cancelOrder = useCancelOrder();
   const configuracaoQuery = useConfiguracoesSistema();
+  const navigate = useNavigate();
+  const fiscalHabilitado = useStatusFiscal().data?.habilitado ?? false;
+  const importarParaNota = useImportarPedidoNotaFiscal();
+
+  /** Cria um rascunho de NF-e a partir do pedido e abre o editor. */
+  async function emitirNotaFiscal(pedidoID: number) {
+    setCreateOrderError("");
+    try {
+      const nota = await importarParaNota.mutateAsync({ pedidoID });
+      navigate(`/fiscal/notas/${nota.id}`);
+    } catch (erro) {
+      setCreateOrderError(
+        mensagemErroFiscal(
+          erro,
+          "Não foi possível criar a nota fiscal a partir do pedido.",
+        ),
+      );
+    }
+  }
   const ordersQuery = useOrders({
     tipo: typeFilter === "all" ? undefined : typeFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -492,6 +516,23 @@ export function Pedidos() {
                                 >
                                   <Printer className="h-4 w-4" />
                                 </button>
+
+                                {/* Venda fechada pode virar rascunho de NF-e. */}
+                                {fiscalHabilitado &&
+                                  order.tipo === "VENDA" &&
+                                  order.status === "FECHADO" && (
+                                    <button
+                                      type="button"
+                                      disabled={importarParaNota.isPending}
+                                      onClick={() =>
+                                        void emitirNotaFiscal(order.id)
+                                      }
+                                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-400 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+                                      title="Emitir nota fiscal (cria um rascunho com os dados do pedido)"
+                                    >
+                                      <Receipt className="h-4 w-4" />
+                                    </button>
+                                  )}
 
                                 {/* Open drafts directly; closed orders require reopening. */}
                                 {order.status !== "CANCELADO" && (

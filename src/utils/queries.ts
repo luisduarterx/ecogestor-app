@@ -62,6 +62,12 @@ import {
   type NaturezaOperacao,
   type NaturezaOperacaoInput,
   type StatusModuloFiscal,
+  type AtualizarNotaFiscalInput,
+  type FiltrosNotasFiscais,
+  type ItemNotaFiscalInput,
+  type NotaFiscal,
+  type NotaFiscalResumo,
+  type Paginado,
 } from "./types";
 import { api } from "./api";
 
@@ -1443,5 +1449,114 @@ export function useCfops(busca: string, tipo: "saida" | "entrada" = "saida") {
           params: { busca: termo, tipo },
         })
       ).data,
+  });
+}
+
+export function useNotasFiscais(filtros: FiltrosNotasFiscais) {
+  return useQuery<Paginado<NotaFiscalResumo>, ApiError>({
+    queryKey: ["fiscal", "notas", filtros],
+    placeholderData: (anteriores) => anteriores,
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () =>
+      (
+        await api.get<Paginado<NotaFiscalResumo>>("/fiscal/notas", {
+          params: filtros,
+        })
+      ).data,
+  });
+}
+
+/** Quantidade de notas para os filtros, sem carregar a lista. */
+export function useContagemNotasFiscais(
+  filtros: Omit<FiltrosNotasFiscais, "pagina" | "limite">,
+) {
+  return useQuery<number, ApiError>({
+    queryKey: ["fiscal", "notas", "contagem", filtros],
+    retry: false,
+    queryFn: async () =>
+      (
+        await api.get<Paginado<NotaFiscalResumo>>("/fiscal/notas", {
+          params: { ...filtros, pagina: 1, limite: 1 },
+        })
+      ).data.paginacao.total,
+  });
+}
+
+export function useNotaFiscal(notaID: number) {
+  return useQuery<NotaFiscal, ApiError>({
+    queryKey: ["fiscal", "nota", notaID],
+    enabled: Number.isInteger(notaID) && notaID > 0,
+    retry: (falhas, erro) => erro.statusCode >= 500 && falhas < 2,
+    queryFn: async () =>
+      (await api.get<NotaFiscal>(`/fiscal/notas/${notaID}`)).data,
+  });
+}
+
+/** Atualiza o cache da nota e invalida as listas após uma alteração. */
+function aplicarNotaAtualizada(
+  queryClient: ReturnType<typeof useQueryClient>,
+  nota: NotaFiscal,
+) {
+  queryClient.setQueryData(["fiscal", "nota", nota.id], nota);
+  return queryClient.invalidateQueries({
+    queryKey: ["fiscal", "notas"],
+  });
+}
+
+export function useCriarNotaFiscal() {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, AtualizarNotaFiscalInput>({
+    mutationFn: async (input) =>
+      (await api.post<NotaFiscal>("/fiscal/notas", input)).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useImportarPedidoNotaFiscal() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    NotaFiscal,
+    ApiError,
+    { pedidoID: number; naturezaOperacaoID?: number }
+  >({
+    mutationFn: async ({ pedidoID, naturezaOperacaoID }) =>
+      (
+        await api.post<NotaFiscal>(
+          `/fiscal/notas/importar-pedido/${pedidoID}`,
+          naturezaOperacaoID ? { naturezaOperacaoID } : {},
+        )
+      ).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useAtualizarNotaFiscal(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, AtualizarNotaFiscalInput>({
+    mutationFn: async (input) =>
+      (await api.patch<NotaFiscal>(`/fiscal/notas/${notaID}`, input)).data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useSalvarItensNotaFiscal(notaID: number) {
+  const queryClient = useQueryClient();
+  return useMutation<NotaFiscal, ApiError, ItemNotaFiscalInput[]>({
+    mutationFn: async (itens) =>
+      (await api.put<NotaFiscal>(`/fiscal/notas/${notaID}/itens`, { itens }))
+        .data,
+    onSuccess: (nota) => aplicarNotaAtualizada(queryClient, nota),
+  });
+}
+
+export function useExcluirNotaFiscal() {
+  const queryClient = useQueryClient();
+  return useMutation<{ id: number }, ApiError, number>({
+    mutationFn: async (notaID) =>
+      (await api.delete<{ id: number }>(`/fiscal/notas/${notaID}`)).data,
+    onSuccess: async (_, notaID) => {
+      queryClient.removeQueries({ queryKey: ["fiscal", "nota", notaID] });
+      await queryClient.invalidateQueries({ queryKey: ["fiscal", "notas"] });
+    },
   });
 }

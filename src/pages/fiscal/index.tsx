@@ -5,12 +5,13 @@ import AvisoAmbienteFiscal from "../../components/fiscal/AvisoAmbienteFiscal";
 import { useStatusFiscal } from "../../utils/queries";
 import { ConfiguracaoFiscalAba } from "./ConfiguracaoFiscalAba";
 import { NaturezasOperacaoAba } from "./NaturezasOperacaoAba";
+import { NotasFiscaisAba } from "./NotasFiscaisAba";
 
-type Aba = "naturezas" | "configuracao";
+type Aba = "notas" | "naturezas" | "configuracao";
 
 export function Fiscal() {
   const statusQuery = useStatusFiscal();
-  const [aba, setAba] = useState<Aba>("naturezas");
+  const [aba, setAba] = useState<Aba>("notas");
   const [aviso, setAviso] = useState("");
 
   useEffect(() => {
@@ -74,11 +75,17 @@ export function Fiscal() {
                 </span>
               </h1>
               <p className="mt-1 text-sm text-slate-400">
-                Regras tributárias da empresa, definidas com o contador, e
-                parâmetros para a emissão de NF-e.
+                Notas fiscais eletrônicas, regras tributárias definidas com o
+                contador e parâmetros de emissão.
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950/40 p-1">
+              <BotaoAba
+                ativa={aba === "notas"}
+                onClick={() => setAba("notas")}
+                Icone={FileText}
+                rotulo="Notas"
+              />
               <BotaoAba
                 ativa={aba === "naturezas"}
                 onClick={() => setAba("naturezas")}
@@ -105,16 +112,11 @@ export function Fiscal() {
             </div>
           )}
 
-          {aba === "naturezas" ? (
-            <NaturezasOperacaoAba onAviso={setAviso} />
-          ) : (
+          {aba === "notas" && <NotasFiscaisAba />}
+          {aba === "naturezas" && <NaturezasOperacaoAba onAviso={setAviso} />}
+          {aba === "configuracao" && (
             <ConfiguracaoFiscalAba onAviso={setAviso} />
           )}
-
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <FileText className="h-3.5 w-3.5" />A lista e a emissão de notas
-            fiscais chegam nas próximas etapas do módulo.
-          </p>
         </div>
       )}
     </LayoutBase>
