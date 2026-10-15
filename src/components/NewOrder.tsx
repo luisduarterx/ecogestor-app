@@ -9,6 +9,7 @@ import {
   Trash2,
   User,
   UserPlus,
+  X,
 } from "lucide-react";
 import {
   useAddOrderItem,
@@ -28,6 +29,7 @@ import {
 import type { ApiError } from "../utils/types";
 import type { RecordResponse } from "../utils/types";
 import { formatarDia } from "../utils/dataCompetencia";
+import { formatarCpfCnpj } from "../utils/fiscal";
 import RecordModal from "./modals/RecordModal";
 
 interface NewOrderProps {
@@ -261,6 +263,18 @@ export default function NewOrder({
         mensagemDoErro(error, "Não foi possível definir o registro."),
       );
     }
+  }
+
+  // Com busca em andamento, limpa só o texto; senão, desvincula o registro.
+  function limparRegistro() {
+    if (recordSearchTouched) {
+      setRecordSearch("");
+      setRecordSearchTouched(false);
+      return;
+    }
+    setRecordSearch("");
+    setRecordSearchTouched(true);
+    void alterarRegistro("");
   }
 
   async function selecionarRegistroCriado(record: RecordResponse) {
@@ -535,81 +549,160 @@ export default function NewOrder({
                 Novo cliente / fornecedor
               </button>
             </div>
-            <div className="relative">
-              <input
-                type="search"
-                value={
-                  recordSearchTouched
-                    ? recordSearch
-                    : registroSelecionado
-                      ? `${registroSelecionado.apelido || registroSelecionado.nome} — ${registroSelecionado.documento}`
-                      : ""
-                }
-                onChange={(event) => {
-                  setRecordSearchTouched(true);
-                  setRecordSearch(event.target.value);
-                }}
-                disabled={
-                  definirRegistro.isPending || pedido.status !== "ABERTO"
-                }
-                placeholder="Digite o nome, apelido, CPF ou CNPJ"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-              {recordSearchTouched && (
-                <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl">
-                  {pesquisandoRegistros && (
-                    <p className="px-3 py-2 text-xs text-slate-500">
-                      Pesquisando registros...
-                    </p>
-                  )}
-                  {!pesquisandoRegistros && registrosQuery.isError && (
-                    <p className="px-3 py-2 text-xs text-rose-400">
-                      Não foi possível pesquisar os registros.
-                    </p>
-                  )}
-                  {!pesquisandoRegistros &&
-                    filteredRecords.map((registro) => (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="relative self-start">
+                <label
+                  htmlFor="busca-registro-pedido"
+                  className="text-xs font-bold uppercase text-slate-400"
+                >
+                  {tipo === "COMPRA" ? "Fornecedor" : "Cliente"}
+                </label>
+                <div className="relative mt-1.5">
+                  <input
+                    id="busca-registro-pedido"
+                    type="search"
+                    autoComplete="off"
+                    value={
+                      recordSearchTouched
+                        ? recordSearch
+                        : registroSelecionado
+                          ? registroSelecionado.apelido ||
+                            registroSelecionado.nome
+                          : ""
+                    }
+                    onChange={(event) => {
+                      setRecordSearchTouched(true);
+                      setRecordSearch(event.target.value);
+                    }}
+                    disabled={
+                      definirRegistro.isPending || pedido.status !== "ABERTO"
+                    }
+                    placeholder="Digite o nome, apelido, CPF ou CNPJ"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 pr-11 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {pedido.status === "ABERTO" &&
+                    (recordSearchTouched
+                      ? Boolean(recordSearch)
+                      : Boolean(pedido.regID)) && (
                       <button
-                        key={registro.id}
                         type="button"
-                        onClick={() => {
-                          setRecordSearch(
-                            `${registro.apelido || registro.nome} — ${registro.documento}`,
-                          );
-                          setRecordSearchTouched(false);
-                          void alterarRegistro(String(registro.id));
-                        }}
-                        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-slate-300 hover:bg-slate-800"
+                        onClick={limparRegistro}
+                        disabled={definirRegistro.isPending}
+                        aria-label={
+                          recordSearchTouched
+                            ? "Limpar busca"
+                            : `Remover ${tipo === "COMPRA" ? "fornecedor" : "cliente"} do pedido`
+                        }
+                        title={
+                          recordSearchTouched
+                            ? "Limpar busca"
+                            : `Remover ${tipo === "COMPRA" ? "fornecedor" : "cliente"} do pedido`
+                        }
+                        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-500 transition-colors hover:text-slate-200 disabled:opacity-50"
                       >
-                        <span className="font-semibold">
-                          {registro.apelido || registro.nome}
-                        </span>
-                        <span className="font-mono text-xs text-slate-500">
-                          {registro.documento}
-                        </span>
+                        <X className="h-4 w-4" />
                       </button>
-                    ))}
-                  {!pesquisandoRegistros &&
-                    !registrosQuery.isError &&
-                    filteredRecords.length === 0 && (
-                      <p className="px-3 py-2 text-xs text-slate-500">
-                        Nenhum registro encontrado.
-                      </p>
                     )}
                 </div>
-              )}
-              {pedido.regID && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRecordSearch("");
-                    setRecordSearchTouched(true);
-                    void alterarRegistro("");
-                  }}
-                  className="mt-2 min-h-11 px-1 text-xs font-bold uppercase text-rose-400 hover:text-rose-300"
-                >
-                  Remover registro vinculado
-                </button>
+                {recordSearchTouched && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/95 p-1 shadow-xl">
+                    {pesquisandoRegistros && (
+                      <p className="px-3 py-2 text-xs text-slate-500">
+                        Pesquisando registros...
+                      </p>
+                    )}
+                    {!pesquisandoRegistros && registrosQuery.isError && (
+                      <p className="px-3 py-2 text-xs text-rose-400">
+                        Não foi possível pesquisar os registros.
+                      </p>
+                    )}
+                    {!pesquisandoRegistros &&
+                      filteredRecords.map((registro) => (
+                        <button
+                          key={registro.id}
+                          type="button"
+                          onClick={() => {
+                            setRecordSearch(
+                              `${registro.apelido || registro.nome} — ${registro.documento}`,
+                            );
+                            setRecordSearchTouched(false);
+                            void alterarRegistro(String(registro.id));
+                          }}
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-slate-300 hover:bg-slate-800"
+                        >
+                          <span className="font-semibold">
+                            {registro.apelido || registro.nome}
+                          </span>
+                          <span className="font-mono text-xs text-slate-500">
+                            {formatarCpfCnpj(registro.documento)}
+                          </span>
+                        </button>
+                      ))}
+                    {!pesquisandoRegistros &&
+                      !registrosQuery.isError &&
+                      filteredRecords.length === 0 && (
+                        <p className="px-3 py-2 text-xs text-slate-500">
+                          Nenhum registro encontrado.
+                        </p>
+                      )}
+                  </div>
+                )}
+              </div>
+
+              {!pedido.regID ? (
+                <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-slate-800 p-4 text-center text-sm text-slate-500">
+                  Nenhum {tipo === "COMPRA" ? "fornecedor" : "cliente"}{" "}
+                  selecionado
+                </div>
+              ) : !registroSelecionado ? (
+                <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-slate-800 p-4 text-center text-sm text-slate-500">
+                  Carregando dados do{" "}
+                  {tipo === "COMPRA" ? "fornecedor" : "cliente"}...
+                </div>
+              ) : (
+                <dl className="space-y-1.5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm">
+                  <div className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-slate-400">
+                      {registroSelecionado.tipo === "FISICA" ? "CPF" : "CNPJ"}:
+                    </dt>
+                    <dd className="font-semibold text-slate-100">
+                      {formatarCpfCnpj(registroSelecionado.documento)}
+                    </dd>
+                  </div>
+                  <div className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-slate-400">Telefone:</dt>
+                    <dd
+                      className={
+                        registroSelecionado.telefone
+                          ? "font-semibold text-slate-100"
+                          : "text-slate-500"
+                      }
+                    >
+                      {registroSelecionado.telefone || "Não informado"}
+                    </dd>
+                  </div>
+                  <div className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-slate-400">PIX:</dt>
+                    <dd
+                      className={
+                        registroSelecionado.dados_pagamento?.chave
+                          ? "break-all font-semibold text-slate-100"
+                          : "text-slate-500"
+                      }
+                    >
+                      {registroSelecionado.dados_pagamento?.chave ||
+                        "Não informado"}
+                    </dd>
+                  </div>
+                  <div className="pt-1.5">
+                    <dt className="sr-only">Tabela de preços</dt>
+                    <dd className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-400">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Tabela: {registroSelecionado.tabela.nome}
+                      {registroSelecionado.tabela.padrao ? " (padrão)" : ""}
+                    </dd>
+                  </div>
+                </dl>
               )}
             </div>
           </section>
