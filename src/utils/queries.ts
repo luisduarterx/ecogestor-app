@@ -3,6 +3,7 @@ import { LIMITE_ACOMPANHAMENTO_RAPIDO, tempoProcessando } from "./fiscal";
 import {
   type ApiError,
   type AddOrderItemInput,
+  type CreateOrderInput,
   type CreateOrderResponse,
   type CloseCashInput,
   type CreateMaterialInput,
@@ -271,11 +272,9 @@ export function useOrders(filters: OrdersFilters = {}) {
 export function useCreateOrder() {
   const queryClient = useQueryClient();
 
-  return useMutation<CreateOrderResponse, ApiError, "COMPRA" | "VENDA">({
-    mutationFn: async (tipo) => {
-      const { data } = await api.post<CreateOrderResponse>("/pedidos", {
-        tipo,
-      });
+  return useMutation<CreateOrderResponse, ApiError, CreateOrderInput>({
+    mutationFn: async (input) => {
+      const { data } = await api.post<CreateOrderResponse>("/pedidos", input);
       return data;
     },
     onSuccess: async () => {

@@ -162,21 +162,21 @@ export function Dashboard() {
   const summary = dashboard.data;
   const oldSummary = previousDashboard.data;
 
-  const periodPurchases = useMemo(() => {
-    const start = localDate(startDate).getTime();
-    const end = new Date(`${endDate}T23:59:59`).getTime();
-    return (purchases.data ?? []).filter((order) => {
-      const timestamp = new Date(
-        order.finalizado_em ?? order.criado_em,
-      ).getTime();
-      return timestamp >= start && timestamp <= end;
-    });
-  }, [endDate, purchases.data, startDate]);
+  // Assim como a API do dashboard, considera a data de competência do pedido
+  // (`data_pedido`), para que pedidos retroativos entrem no dia do negócio.
+  const periodPurchases = useMemo(
+    () =>
+      (purchases.data ?? []).filter(
+        (order) =>
+          order.data_pedido >= startDate && order.data_pedido <= endDate,
+      ),
+    [endDate, purchases.data, startDate],
+  );
 
   const timeline = useMemo(() => {
     const totals = new Map<string, number>();
     periodPurchases.forEach((order) => {
-      const key = inputDate(new Date(order.finalizado_em ?? order.criado_em));
+      const key = order.data_pedido;
       totals.set(key, (totals.get(key) ?? 0) + order.valor_total);
     });
     return [...totals]
