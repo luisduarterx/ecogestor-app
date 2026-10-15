@@ -6,6 +6,7 @@ import type {
   RecordResponse,
   TipoDocumentoEmpresa,
 } from "../../utils/types";
+import { diaNoFuso } from "../../utils/dataCompetencia";
 
 /**
  * Modelo editável do cabeçalho e rodapé do cupom.
@@ -63,6 +64,9 @@ export type OrderReceiptData = {
   status: OrderResponse["status"];
   issuedAt: string;
   finalizedAt?: string;
+  /** Data do pedido (YYYY-MM-DD), informada só quando difere do dia da emissão. */
+  orderDate?: string;
+  retroactive?: boolean;
   partnerName: string;
   partnerDocument?: string;
   partnerPhone?: string;
@@ -101,6 +105,11 @@ export function orderToReceiptData(
     status: order.status,
     issuedAt: order.criado_em,
     finalizedAt: order.finalizado_em,
+    orderDate:
+      diaNoFuso(order.criado_em) !== order.data_pedido
+        ? order.data_pedido
+        : undefined,
+    retroactive: order.retroativo,
     partnerName:
       order.registro?.nome_razao || order.registro?.apelido || "Não informado",
     partnerDocument: cadastro?.documento

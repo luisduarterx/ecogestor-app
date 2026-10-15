@@ -5,6 +5,7 @@ import {
   type OrderReceiptData,
   type OrderReceiptTemplate,
 } from "./modals/orderReceiptModel";
+import { formatarDia } from "../utils/dataCompetencia";
 
 const PIXELS_POR_MM = 96 / 25.4;
 
@@ -24,6 +25,17 @@ function formatDate(value?: string) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+/** Data de competência do pedido, quando difere do dia da emissão. */
+function DataDoPedido({ data }: { data: OrderReceiptData }) {
+  if (!data.orderDate) return null;
+  return (
+    <div className="receipt-strong">
+      DATA DO PEDIDO: {formatarDia(data.orderDate)}
+      {data.retroactive ? " (RETROATIVO)" : ""}
+    </div>
+  );
 }
 
 export default function OrderReceipt({
@@ -65,6 +77,7 @@ export default function OrderReceipt({
             {data.partnerAddress && <div>ENDEREÇO: {data.partnerAddress}</div>}
           </div>
           <div className="receipt-info-line">
+            <DataDoPedido data={data} />
             <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
             {data.finalizedAt && (
               <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>
@@ -78,6 +91,7 @@ export default function OrderReceipt({
       ) : (
         <section>
           <div>PEDIDO: #{data.id}</div>
+          <DataDoPedido data={data} />
           <div>EMISSÃO: {formatDate(data.issuedAt)}</div>
           {data.finalizedAt && (
             <div>FINALIZAÇÃO: {formatDate(data.finalizedAt)}</div>

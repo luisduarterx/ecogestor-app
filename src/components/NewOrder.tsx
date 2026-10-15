@@ -1,6 +1,7 @@
 import { useDeferredValue, useRef, useState, type FormEvent } from "react";
 import {
   AlertCircle,
+  CalendarDays,
   Check,
   DollarSign,
   Plus,
@@ -26,6 +27,7 @@ import {
 } from "../utils/queries";
 import type { ApiError } from "../utils/types";
 import type { RecordResponse } from "../utils/types";
+import { formatarDia } from "../utils/dataCompetencia";
 import RecordModal from "./modals/RecordModal";
 
 interface NewOrderProps {
@@ -613,9 +615,21 @@ export default function NewOrder({
           </section>
 
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h3 className="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               <ShoppingBag className="h-4 w-4 text-emerald-400" />
               Itens do pedido #{pedidoID}
+              <span
+                className="ml-auto flex items-center gap-1.5 font-mono normal-case tracking-normal"
+                title="Data do pedido"
+              >
+                <CalendarDays className="h-3.5 w-3.5 text-slate-500" />
+                {formatarDia(pedido.data_pedido)}
+                {pedido.retroativo && (
+                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-sans text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                    Retroativo
+                  </span>
+                )}
+              </span>
             </h3>
 
             <form

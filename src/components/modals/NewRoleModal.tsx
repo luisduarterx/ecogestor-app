@@ -24,6 +24,7 @@ const actionLabels: Record<string, string> = {
   cancel: "Cancelar",
   reopen: "Reabrir",
   reverse: "Estornar",
+  backdate: "Data retroativa em",
 };
 
 export default function NewRoleModal({

@@ -73,6 +73,10 @@ export type OrdersResponse = {
   criado_em: string;
   finalizado_em: string | null;
   atualizado: string;
+  /** Data de competência (YYYY-MM-DD): o dia em que o negócio ocorreu. */
+  data_pedido: string;
+  /** Verdadeiro quando `data_pedido` é anterior ao dia de `criado_em`. */
+  retroativo: boolean;
   registro: {
     id: number;
     nome_razao: string;
@@ -85,6 +89,15 @@ export type OrdersResponse = {
 export type OrdersFilters = {
   tipo?: OrdersResponse["tipo"];
   status?: OrdersResponse["status"];
+  /** Filtra por `data_pedido` (YYYY-MM-DD, inclusivo). */
+  dataInicial?: string;
+  dataFinal?: string;
+};
+
+export type CreateOrderInput = {
+  tipo: OrdersResponse["tipo"];
+  /** YYYY-MM-DD; omitido = hoje. Datas anteriores exigem `backdate:pedido`. */
+  data_pedido?: string;
 };
 
 export type CreateOrderResponse = {
@@ -96,6 +109,8 @@ export type CreateOrderResponse = {
   status: "ABERTO";
   userID: number;
   criado_em: string;
+  data_pedido: string;
+  retroativo: boolean;
   items: [];
   caixa: { id: number; status: "ABERTO" | "FECHADO" };
   registro: null;
@@ -270,6 +285,8 @@ export type OrderResponse = {
   criado_em: string;
   finalizado_em?: string;
   atualizado?: string;
+  data_pedido: string;
+  retroativo: boolean;
   registro: {
     id: number;
     nome_razao: string;
