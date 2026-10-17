@@ -58,6 +58,8 @@ export function Precos() {
   const { pode, podeAlguma } = usePermissoes();
   const verTabelas = pode("read:tabela");
   const verCategorias = pode("read:categoria_material");
+  const podeCriarMaterial = pode("create:material") && verCategorias;
+  const podeCriarCategoria = pode("create:categoria_material");
   const verCadastro = podeAlguma(
     "create:material",
     "update:material",
@@ -636,262 +638,270 @@ export function Precos() {
             {/* Left Column containing Forms */}
             <div className="space-y-6 self-start">
               {/* Form 1: Novo Material Comercial */}
-              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
-                  <Package className="h-4 w-4 text-emerald-400" />
-                  Novo Material Comercial
-                </h3>
+              {podeCriarMaterial && (
+                <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
+                    <Package className="h-4 w-4 text-emerald-400" />
+                    Novo Material Comercial
+                  </h3>
 
-                {materialFormError && (
-                  <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-xs text-rose-400 flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{materialFormError}</span>
-                  </div>
-                )}
+                  {materialFormError && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-xs text-rose-400 flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{materialFormError}</span>
+                    </div>
+                  )}
 
-                {materialFormSuccess && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-xs text-emerald-400 flex items-start gap-2">
-                    <Check className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{materialFormSuccess}</span>
-                  </div>
-                )}
+                  {materialFormSuccess && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-xs text-emerald-400 flex items-start gap-2">
+                      <Check className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{materialFormSuccess}</span>
+                    </div>
+                  )}
 
-                <form
-                  onSubmit={(event) => void handleCreateMaterial(event)}
-                  className="space-y-4 text-xs"
-                >
-                  {/* Material Name */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Nome Comercial do Material *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newMatName}
-                      onChange={(e) => setNewMatName(e.target.value)}
-                      placeholder="Ex: PET Azul Limpo (Fardo)"
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                    />
-                  </div>
-
-                  {/* Category selector */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Categoria de Materiais *
+                  <form
+                    onSubmit={(event) => void handleCreateMaterial(event)}
+                    className="space-y-4 text-xs"
+                  >
+                    {/* Material Name */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Nome Comercial do Material *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsNewCategory(!isNewCategory)}
-                        className="text-[10px] text-emerald-400 font-bold hover:underline"
-                      >
-                        {isNewCategory
-                          ? "Escolher Existente"
-                          : "+ Criar Nova Categoria"}
-                      </button>
+                      <input
+                        type="text"
+                        required
+                        value={newMatName}
+                        onChange={(e) => setNewMatName(e.target.value)}
+                        placeholder="Ex: PET Azul Limpo (Fardo)"
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
                     </div>
 
-                    {isNewCategory ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
+                    {/* Category selector */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Categoria de Materiais *
+                        </label>
+                        {podeCriarCategoria && (
+                          <button
+                            type="button"
+                            onClick={() => setIsNewCategory(!isNewCategory)}
+                            className="text-[10px] text-emerald-400 font-bold hover:underline"
+                          >
+                            {isNewCategory
+                              ? "Escolher Existente"
+                              : "+ Criar Nova Categoria"}
+                          </button>
+                        )}
+                      </div>
+
+                      {isNewCategory ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            required
+                            value={customCategoryName}
+                            onChange={(e) =>
+                              setCustomCategoryName(e.target.value)
+                            }
+                            placeholder="Nova categoria (Ex: Metais Nobres)"
+                            className="flex-1 bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
+                        </div>
+                      ) : (
+                        <select
                           required
-                          value={customCategoryName}
-                          onChange={(e) =>
-                            setCustomCategoryName(e.target.value)
-                          }
-                          placeholder="Nova categoria (Ex: Metais Nobres)"
-                          className="flex-1 bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          value={newMatCategory}
+                          onChange={(e) => setNewMatCategory(e.target.value)}
+                          className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        >
+                          <option value="">Selecione...</option>
+                          {(categoriesQuery.data ?? []).map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.nome}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Preço de compra (R$ / kg) *
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newMatBuyPrice}
+                          onChange={(e) => setNewMatBuyPrice(e.target.value)}
+                          className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
                         />
                       </div>
-                    ) : (
-                      <select
-                        required
-                        value={newMatCategory}
-                        onChange={(e) => setNewMatCategory(e.target.value)}
-                        className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                      >
-                        <option value="">Selecione...</option>
-                        {(categoriesQuery.data ?? []).map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.nome}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Preço de venda (R$ / kg) *
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newMatSellPrice}
+                          onChange={(e) => setNewMatSellPrice(e.target.value)}
+                          className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                        />
+                      </div>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                    {/* Unit and stock limits */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Unidade de Medida
+                        </label>
+                        <select
+                          value={newMatUnit}
+                          onChange={(e) =>
+                            setNewMatUnit(e.target.value as "KG" | "LT" | "UN")
+                          }
+                          className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        >
+                          <option value="KG">Quilos (kg)</option>
+                          <option value="LT">Litros (L)</option>
+                          <option value="UN">Unidades (un)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Estoque Mínimo Alerta (kg)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newMatMinStock}
+                          onChange={(e) => setNewMatMinStock(e.target.value)}
+                          placeholder="Ex: 500"
+                          className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Estoque Máximo
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newMatMaxStock}
+                          onChange={(e) => setNewMatMaxStock(e.target.value)}
+                          placeholder="Ex: 1000"
+                          className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <CamposFiscaisMaterial
+                      dados={newMatFiscal}
+                      onChange={setNewMatFiscal}
+                      classeCampo="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+
+                    {/* Color label */}
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Preço de compra (R$ / kg) *
+                        Identificador Visual (Cor do Gráfico)
                       </label>
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newMatBuyPrice}
-                        onChange={(e) => setNewMatBuyPrice(e.target.value)}
-                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                      />
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="color"
+                          value={newMatColor}
+                          onChange={(e) => setNewMatColor(e.target.value)}
+                          className="w-10 h-10 bg-transparent border-0 rounded-lg cursor-pointer"
+                        />
+                        <span className="text-[10px] font-mono text-slate-500 uppercase">
+                          {newMatColor}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Preço de venda (R$ / kg) *
-                      </label>
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newMatSellPrice}
-                        onChange={(e) => setNewMatSellPrice(e.target.value)}
-                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                      />
-                    </div>
-                  </div>
 
-                  {/* Unit and stock limits */}
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Unidade de Medida
-                      </label>
-                      <select
-                        value={newMatUnit}
-                        onChange={(e) =>
-                          setNewMatUnit(e.target.value as "KG" | "LT" | "UN")
-                        }
-                        className="w-full bg-slate-950/40 text-slate-300 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                      >
-                        <option value="KG">Quilos (kg)</option>
-                        <option value="LT">Litros (L)</option>
-                        <option value="UN">Unidades (un)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Estoque Mínimo Alerta (kg)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newMatMinStock}
-                        onChange={(e) => setNewMatMinStock(e.target.value)}
-                        placeholder="Ex: 500"
-                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                        Estoque Máximo
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={newMatMaxStock}
-                        onChange={(e) => setNewMatMaxStock(e.target.value)}
-                        placeholder="Ex: 1000"
-                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <CamposFiscaisMaterial
-                    dados={newMatFiscal}
-                    onChange={setNewMatFiscal}
-                    classeCampo="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                  />
-
-                  {/* Color label */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Identificador Visual (Cor do Gráfico)
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="color"
-                        value={newMatColor}
-                        onChange={(e) => setNewMatColor(e.target.value)}
-                        className="w-10 h-10 bg-transparent border-0 rounded-lg cursor-pointer"
-                      />
-                      <span className="text-[10px] font-mono text-slate-500 uppercase">
-                        {newMatColor}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={
-                      createMaterial.isPending || createCategory.isPending
-                    }
-                    className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {createMaterial.isPending
-                      ? "Cadastrando..."
-                      : "Cadastrar Material"}
-                  </button>
-                </form>
-              </div>
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={
+                        createMaterial.isPending || createCategory.isPending
+                      }
+                      className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {createMaterial.isPending
+                        ? "Cadastrando..."
+                        : "Cadastrar Material"}
+                    </button>
+                  </form>
+                </div>
+              )}
 
               {/* Form 2: Nova Categoria de Materiais */}
-              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
-                  <FolderPlus className="h-4 w-4 text-emerald-400" />
-                  Nova Categoria de Materiais
-                </h3>
+              {podeCriarCategoria && (
+                <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
+                    <FolderPlus className="h-4 w-4 text-emerald-400" />
+                    Nova Categoria de Materiais
+                  </h3>
 
-                {categoryFormError && (
-                  <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-xs text-rose-400 flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{categoryFormError}</span>
-                  </div>
-                )}
+                  {categoryFormError && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-xs text-rose-400 flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{categoryFormError}</span>
+                    </div>
+                  )}
 
-                {categoryFormSuccess && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-xs text-emerald-400 flex items-start gap-2">
-                    <Check className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{categoryFormSuccess}</span>
-                  </div>
-                )}
+                  {categoryFormSuccess && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-xs text-emerald-400 flex items-start gap-2">
+                      <Check className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{categoryFormSuccess}</span>
+                    </div>
+                  )}
 
-                <form
-                  onSubmit={(event) => void handleCreateCategory(event)}
-                  className="space-y-4 text-xs"
-                >
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Nome da Categoria *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newCategoryNameInput}
-                      onChange={(e) => setNewCategoryNameInput(e.target.value)}
-                      placeholder="Ex: Metais Nobres, Plásticos Especiais"
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={createCategory.isPending}
-                    className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
+                  <form
+                    onSubmit={(event) => void handleCreateCategory(event)}
+                    className="space-y-4 text-xs"
                   >
-                    <Plus className="h-4 w-4" />
-                    {createCategory.isPending
-                      ? "Criando..."
-                      : "Criar Categoria"}
-                  </button>
-                </form>
-              </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Nome da Categoria *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newCategoryNameInput}
+                        onChange={(e) =>
+                          setNewCategoryNameInput(e.target.value)
+                        }
+                        placeholder="Ex: Metais Nobres, Plásticos Especiais"
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={createCategory.isPending}
+                      className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5 mt-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {createCategory.isPending
+                        ? "Criando..."
+                        : "Criar Categoria"}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
 
             {/* Current Catalogue Grid (Right Column, spans 2) */}
@@ -919,17 +929,19 @@ export function Precos() {
                   >
                     Materiais
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setCatalogView("categories")}
-                    className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${
-                      catalogView === "categories"
-                        ? "bg-emerald-400 text-slate-950"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    Categorias
-                  </button>
+                  {verCategorias && (
+                    <button
+                      type="button"
+                      onClick={() => setCatalogView("categories")}
+                      className={`rounded-md px-3 py-1.5 text-[10px] font-bold uppercase transition-colors ${
+                        catalogView === "categories"
+                          ? "bg-emerald-400 text-slate-950"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Categorias
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -982,15 +994,17 @@ export function Precos() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleEditMaterial(material.id)}
-                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
-                              title={`Atualizar ${material.nome}`}
-                              aria-label={`Atualizar ${material.nome}`}
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </button>
+                            {pode("update:material") && (
+                              <button
+                                type="button"
+                                onClick={() => handleEditMaterial(material.id)}
+                                className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+                                title={`Atualizar ${material.nome}`}
+                                aria-label={`Atualizar ${material.nome}`}
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1027,15 +1041,17 @@ export function Precos() {
                             }
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setEditingCategory(category)}
-                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
-                              title={`Atualizar ${category.nome}`}
-                              aria-label={`Atualizar categoria ${category.nome}`}
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </button>
+                            {pode("update:categoria_material") && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingCategory(category)}
+                                className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+                                title={`Atualizar ${category.nome}`}
+                                aria-label={`Atualizar categoria ${category.nome}`}
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1055,44 +1071,46 @@ export function Precos() {
             {/* Tables Registry (Left Column) */}
             <div className="space-y-6 self-start">
               {/* Create Table Card */}
-              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
-                  <FolderPlus className="h-4 w-4 text-emerald-400" />
-                  Criar Nova Tabela
-                </h3>
+              {pode("create:tabela") && (
+                <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800/60 pb-3">
+                    <FolderPlus className="h-4 w-4 text-emerald-400" />
+                    Criar Nova Tabela
+                  </h3>
 
-                <form
-                  onSubmit={(event) => void handleCreateTable(event)}
-                  className="space-y-4 text-xs"
-                >
-                  {tableFormError && (
-                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
-                      {tableFormError}
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Nome Comercial da Tabela *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newTableName}
-                      onChange={(e) => setNewTableName(e.target.value)}
-                      placeholder="Ex: Tabela Fornecedores Grandes"
-                      className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={createTable.isPending}
-                    className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  <form
+                    onSubmit={(event) => void handleCreateTable(event)}
+                    className="space-y-4 text-xs"
                   >
-                    <Plus className="h-4 w-4" />
-                    {createTable.isPending ? "Criando..." : "Criar Tabela"}
-                  </button>
-                </form>
-              </div>
+                    {tableFormError && (
+                      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
+                        {tableFormError}
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Nome Comercial da Tabela *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newTableName}
+                        onChange={(e) => setNewTableName(e.target.value)}
+                        placeholder="Ex: Tabela Fornecedores Grandes"
+                        className="w-full bg-slate-950/40 text-slate-100 border border-slate-800 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={createTable.isPending}
+                      className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl uppercase tracking-wider transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {createTable.isPending ? "Criando..." : "Criar Tabela"}
+                    </button>
+                  </form>
+                </div>
+              )}
 
               {/* Select/View Existing Custom Tables */}
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
@@ -1168,16 +1186,18 @@ export function Precos() {
                         </div>
                       )}
 
-                      {selectedTableId !== null && !selectedTable?.padrao && (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTableConfirmationOpen(true)}
-                          disabled={deleteTable.isPending}
-                          className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500 hover:text-slate-950 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" /> Excluir
-                        </button>
-                      )}
+                      {selectedTableId !== null &&
+                        !selectedTable?.padrao &&
+                        pode("delete:tabela") && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTableConfirmationOpen(true)}
+                            disabled={deleteTable.isPending}
+                            className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500 hover:text-slate-950 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" /> Excluir
+                          </button>
+                        )}
 
                       {selectedTableId !== null && (
                         <button
@@ -1288,7 +1308,7 @@ export function Precos() {
               </div>
 
               {/* Save Button Footer */}
-              {selectedTableId !== null && (
+              {selectedTableId !== null && pode("update:tabela") && (
                 <div className="p-4 border-t border-slate-800 bg-slate-950/15 flex justify-end">
                   <button
                     type="button"

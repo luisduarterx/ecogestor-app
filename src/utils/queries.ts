@@ -875,7 +875,8 @@ export function useCashReconciliation({ enabled = true } = {}) {
     enabled,
     retry: false,
     queryFn: async () => {
-      const { data } = await api.get<ReconciliationCashResponse>(
+      // A API devolve null quando não há caixa aberto.
+      const { data } = await api.get<ReconciliationCashResponse | null>(
         "/financeiro/caixa/consulta",
       );
       return data;

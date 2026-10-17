@@ -72,14 +72,11 @@ export function Estoque() {
     number | null
   >(null);
   const [conversionActionError, setConversionActionError] = useState("");
-  // O relatório de compras e vendas vem do painel e exige read:dashboard.
   const { pode } = usePermissoes();
-  const verRelatorio = pode("read:dashboard");
   const balancesQuery = useInventoryBalances();
   const materialsReportQuery = useDashboardMaterials(
     reportStartDate,
     reportEndDate,
-    { enabled: verRelatorio },
   );
   const movementsQuery = useInventoryMovements({});
   const conversionsQuery = useInventoryConversions(
@@ -396,20 +393,18 @@ export function Estoque() {
             >
               Extrato de Material
             </button>
-            {verRelatorio && (
-              <button
-                onClick={() => {
-                  setActiveSubTab("period-report");
-                }}
-                className={`flex-1 sm:flex-initial sm:px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-150 cursor-pointer ${
-                  activeSubTab === "period-report"
-                    ? "bg-emerald-400 text-slate-950 shadow-md font-extrabold"
-                    : "text-slate-400 hover:text-slate-100"
-                }`}
-              >
-                Compras e Vendas
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setActiveSubTab("period-report");
+              }}
+              className={`flex-1 sm:flex-initial sm:px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-150 cursor-pointer ${
+                activeSubTab === "period-report"
+                  ? "bg-emerald-400 text-slate-950 shadow-md font-extrabold"
+                  : "text-slate-400 hover:text-slate-100"
+              }`}
+            >
+              Compras e Vendas
+            </button>
             <button
               onClick={() => {
                 setActiveSubTab("conversions");

@@ -91,8 +91,11 @@ export function Usuarios() {
     });
   }, [roleFilter, searchTerm, users]);
 
+  // Administrador é quem pode editar cargos, qualquer que seja o nome do cargo.
   const adminCount = users.filter((item) =>
-    roleByID.get(item.cargoID)?.nome.toUpperCase().includes("ADMIN"),
+    detailByID
+      .get(item.cargoID)
+      ?.permissoes.some((permissao) => permissao.nome === "update:cargo"),
   ).length;
   const loading =
     usersQuery.isPending ||
