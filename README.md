@@ -1,3 +1,18 @@
+# EcoGestor (front-end)
+
+## Testes e CI
+
+```bash
+npm test               # roda os testes uma vez
+npm run test:watch     # roda os testes a cada alteração
+npm run test:cobertura # roda os testes com relatório de cobertura em coverage/
+npm run verificar      # build, ESLint, Prettier e testes, como no CI
+```
+
+O workflow `.github/workflows/ci.yaml` roda em todo pull request e em todo push na `main`: tipos e build, ESLint, Prettier, testes com cobertura e build da imagem Docker. A `main` só aceita merge com o check `CI concluído` aprovado.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

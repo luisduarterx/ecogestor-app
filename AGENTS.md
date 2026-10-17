@@ -88,14 +88,20 @@ Termos exigidos por bibliotecas, frameworks, protocolos, APIs, contratos externo
 Após mudanças de código, execute:
 
 ```bash
-npm run build
-npm run lint
-npm run lint:prettier:check
+npm run verificar
 ```
+
+O comando roda, em sequência, `npm run build`, `npm run lint`, `npm run lint:prettier:check` e `npm run test:cobertura`, os mesmos passos do CI (`.github/workflows/ci.yaml`). A `main` é protegida e só aceita pull requests com o check `CI concluído` aprovado.
 
 Se algum comando falhar, corrija o problema causado pela alteração. Falhas preexistentes devem ser documentadas claramente, sem modificar código fora do escopo apenas para ocultá-las.
 
-Quando houver testes automatizados relacionados à área alterada, execute-os também. Para correções de defeitos, adicione ou atualize um teste de regressão quando a infraestrutura de testes permitir.
+## Testes automatizados
+
+- Testes usam Vitest e Testing Library (`vitest.config.ts`), com jsdom.
+- Os arquivos de teste ficam ao lado do módulo testado, com o sufixo `.test.ts` ou `.test.tsx`. Utilitários compartilhados de teste ficam em `src/testes`.
+- Toda funcionalidade nova ou alterada deve vir acompanhada de testes. Para correções de defeitos, adicione um teste de regressão que falhe sem a correção.
+- A cobertura mínima é exigida por arquivo em `vitest.config.ts`. Ao testar um módulo novo, inclua-o nos limites; nunca reduza um limite existente para fazer o CI passar.
+- Mocks de rede devem ser feitos no limite (`api` ou hooks de `src/utils/queries.ts`), nunca chamando a API real.
 
 ## Segurança e preservação de dados
 
