@@ -1,0 +1,93 @@
+import type { ItemNotaFiscal, NotaFiscal } from "../utils/types";
+
+/** Nota fiscal mínima para testes; sobrescreva apenas o que o teste usa. */
+export function criarNotaFiscal(parcial: Partial<NotaFiscal> = {}): NotaFiscal {
+  return {
+    id: 1,
+    status: "RASCUNHO",
+    emissao: {
+      ambiente: null,
+      numero: null,
+      serie: null,
+      chave: null,
+      protocolo: null,
+      statusSefaz: null,
+      mensagemSefaz: null,
+      errosValidacao: null,
+      emitidaEm: null,
+      autorizadaEm: null,
+      emitidaPor: null,
+    },
+    cancelamento: {
+      canceladaEm: null,
+      justificativa: null,
+      protocolo: null,
+      canceladaPor: null,
+    },
+    quantidadeCartasCorrecao: 0,
+    naturezaOperacaoID: null,
+    naturezaOperacaoDescricao: null,
+    registroID: null,
+    destinatario: {
+      tipo: "JURIDICA",
+      nome: "Recicla Ltda",
+      documento: "12345678000190",
+      indicadorIE: "CONTRIBUINTE",
+      ie: null,
+      email: null,
+      telefone: null,
+      logradouro: null,
+      numero: null,
+      complemento: null,
+      bairro: null,
+      municipio: null,
+      uf: "RJ",
+      cep: null,
+    },
+    consumidorFinal: false,
+    modalidadeFrete: "SEM_FRETE",
+    transportadoraRegistroID: null,
+    transportadora: {
+      nome: null,
+      documento: null,
+      ie: null,
+      endereco: null,
+      municipio: null,
+      uf: null,
+    },
+    veiculo: { placa: null, uf: null },
+    informacoesComplementares: null,
+    valorTotal: 0,
+    itens: [],
+    criadoPor: { id: 1, nome: "Admin" },
+    criadoEm: "2026-01-01T12:00:00Z",
+    atualizadoEm: "2026-01-01T12:00:00Z",
+    ...parcial,
+  };
+}
+
+export function criarItemNotaFiscal(
+  parcial: Partial<ItemNotaFiscal> = {},
+): ItemNotaFiscal {
+  return {
+    id: 10,
+    numeroItem: 1,
+    materialID: 7,
+    descricao: "PAPELÃO",
+    ncm: "47079000",
+    cest: null,
+    origemMercadoria: "NACIONAL",
+    unidade: "KG",
+    quantidade: 12.5,
+    valorUnitario: 0.8,
+    valorBruto: 10,
+    cfop: null,
+    icmsSituacaoTributaria: null,
+    icmsAliquota: null,
+    pisSituacaoTributaria: null,
+    pisAliquota: null,
+    cofinsSituacaoTributaria: null,
+    cofinsAliquota: null,
+    ...parcial,
+  };
+}
