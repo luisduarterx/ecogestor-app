@@ -19,6 +19,10 @@ import { useLoggedUser } from "../../context/useLoggedUser";
 import { useNavigate } from "react-router";
 import { mensagemErroFiscal } from "../../utils/fiscal";
 import {
+  PERMISSAO_PEDIDO_RETROATIVO,
+  temPermissao,
+} from "../../utils/autorizacao";
+import {
   useCancelOrder,
   useConfiguracoesSistema,
   useImportarPedidoNotaFiscal,
@@ -166,6 +170,13 @@ export function Pedidos() {
       );
       return;
     }
+    // A API recusa com 403; o aviso evita a requisição quando já se sabe.
+    if (dataPedido < hoje && !temPermissao(user, PERMISSAO_PEDIDO_RETROATIVO)) {
+      setCreateOrderError(
+        "Você não tem permissão para lançar pedidos com data retroativa.",
+      );
+      return;
+    }
 
     try {
       const openOrdersResult = await openOrdersQuery.refetch();
@@ -282,6 +293,7 @@ export function Pedidos() {
   const dataNovoPedidoExibida = dataNovoPedido ?? hoje;
   const novoPedidoRetroativo =
     dataValida(dataNovoPedidoExibida) && dataNovoPedidoExibida < hoje;
+  const podeLancarRetroativo = temPermissao(user, PERMISSAO_PEDIDO_RETROATIVO);
 
   return (
     <LayoutBase activeTab="pedidos" pageTitle="Gerenciar Pedidos">
@@ -330,6 +342,8 @@ export function Pedidos() {
                   required
                   type="date"
                   max={hoje}
+                  // Sem a permissão, o pedido só pode ser lançado no dia de hoje.
+                  min={podeLancarRetroativo ? undefined : hoje}
                   value={dataNovoPedidoExibida}
                   onChange={(event) => setDataNovoPedido(event.target.value)}
                   className="mt-1.5 block w-full md:w-44 bg-slate-950/40 text-slate-200 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
@@ -387,12 +401,18 @@ export function Pedidos() {
                   : `Iniciar pedido de ${tipoNovoPedido === "COMPRA" ? "compra" : "venda"}`}
               </button>
 
-              {novoPedidoRetroativo && (
-                <p className="text-[11px] leading-relaxed text-amber-400 md:max-w-sm md:self-center">
-                  Pedido retroativo: exige a permissão de data retroativa.
-                  Estoque e financeiro serão movimentados no caixa aberto atual.
-                </p>
-              )}
+              {novoPedidoRetroativo &&
+                (podeLancarRetroativo ? (
+                  <p className="text-[11px] leading-relaxed text-amber-400 md:max-w-sm md:self-center">
+                    Pedido retroativo: estoque e financeiro serão movimentados
+                    no caixa aberto atual.
+                  </p>
+                ) : (
+                  <p className="text-[11px] leading-relaxed text-rose-300 md:max-w-sm md:self-center">
+                    Você não tem permissão para lançar pedidos com data
+                    retroativa. Solicite a permissão a um administrador.
+                  </p>
+                ))}
             </form>
           )}
         </div>
