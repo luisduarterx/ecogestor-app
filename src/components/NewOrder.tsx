@@ -26,6 +26,7 @@ import {
   useTables,
   fetchTable,
 } from "../utils/queries";
+import { usePermissoes } from "../context/usePermissoes";
 import type { ApiError } from "../utils/types";
 import type { RecordResponse } from "../utils/types";
 import { formatarDia } from "../utils/dataCompetencia";
@@ -114,7 +115,9 @@ export default function NewOrder({
   const aplicarTabelaDoRegistro = useApplyOrderRecordTable(pedidoID);
   const adicionarItem = useAddOrderItem(pedidoID);
   const removerItem = useRemoveOrderItem(pedidoID);
-  const contasQuery = useFinancialAccounts();
+  const { pode } = usePermissoes();
+  const podeFinalizar = pode("finalize:pedido");
+  const contasQuery = useFinancialAccounts({ enabled: podeFinalizar });
   const finalizarPedido = useFinalizeOrder(pedidoID);
   const materialInputRef = useRef<HTMLInputElement>(null);
 
@@ -191,7 +194,7 @@ export default function NewOrder({
     (tipo === "COMPRA" &&
       Boolean(registroSelecionado) &&
       tabelaDoRegistroQuery.isPending) ||
-    contasQuery.isPending;
+    (podeFinalizar && contasQuery.isPending);
   const erroDeCarga =
     pedidoQuery.isError ||
     (!recordSearchTouched && registrosQuery.isError) ||
@@ -199,7 +202,7 @@ export default function NewOrder({
     materiaisQuery.isError ||
     tabelasQuery.isError ||
     (tipo === "COMPRA" && tabelaDoRegistroQuery.isError) ||
-    contasQuery.isError;
+    (podeFinalizar && contasQuery.isError);
 
   function selecionarMaterial(value: string) {
     setMaterialID(value);
@@ -539,15 +542,17 @@ export default function NewOrder({
                 <User className="h-4 w-4 text-emerald-400" />
                 Registro do pedido
               </h3>
-              <button
-                type="button"
-                onClick={() => setIsRecordModalOpen(true)}
-                disabled={pedido.status !== "ABERTO"}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 min-h-11 px-4 py-2 text-xs font-bold uppercase text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                Novo cliente / fornecedor
-              </button>
+              {pode("create:registros") && (
+                <button
+                  type="button"
+                  onClick={() => setIsRecordModalOpen(true)}
+                  disabled={pedido.status !== "ABERTO"}
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 min-h-11 px-4 py-2 text-xs font-bold uppercase text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Novo cliente / fornecedor
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="relative self-start">
@@ -972,131 +977,149 @@ export default function NewOrder({
           </div>
         )}
 
-        <form onSubmit={(event) => void finalizar(event)} className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase text-slate-400">
-                Títulos, valores e vencimentos
-              </span>
-              <button
-                type="button"
-                onClick={adicionarTitulo}
-                disabled={titulosDoPedido.length >= 12}
-                className="flex items-center gap-1 rounded-lg border border-emerald-500/30 min-h-11 px-3 py-2 text-xs font-bold uppercase text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar título
-              </button>
-            </div>
-            {titulosDoPedido.map((item, indice) => (
-              <div
-                key={item.id}
-                className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-slate-400">
-                    Título {indice + 1}
-                  </span>
-                  {titulosDoPedido.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerTitulo(item.id)}
-                      aria-label={`Remover título ${indice + 1}`}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <label className="text-xs font-semibold text-slate-400">
-                    Valor (R$)
-                    <input
-                      required
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      placeholder="0,00"
-                      value={
-                        item.valor === null
-                          ? pedido.valor_total.toFixed(2)
-                          : item.valor
-                      }
-                      onChange={(event) =>
-                        alterarTitulo(
-                          item.id,
-                          "valor",
-                          apenasDecimal(event.target.value),
-                        )
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-slate-400">
-                    Vencimento
-                    <input
-                      required
-                      type="date"
-                      value={item.vencimento}
-                      onChange={(event) =>
-                        alterarTitulo(item.id, "vencimento", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
+        {!podeFinalizar && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
+            Seu cargo não permite finalizar pedidos. O pedido fica aberto para
+            quem tem essa permissão concluir o pagamento.
           </div>
+        )}
 
-          <label className="flex min-h-11 items-center gap-3 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              className="h-5 w-5 accent-emerald-400"
-              checked={baixarAgora}
-              onChange={(event) => {
-                setBaixarAgora(event.target.checked);
-                if (!event.target.checked) setContaID("");
-              }}
-            />
-            Realizar baixa imediatamente
-          </label>
-
-          {baixarAgora && (
-            <label className="block text-xs font-bold uppercase text-slate-400">
-              Conta financeira
-              <select
-                required
-                value={contaSelecionadaID}
-                onChange={(event) => setContaID(event.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300"
-              >
-                <option value="">Selecione</option>
-                {(contasQuery.data ?? []).map((conta) => (
-                  <option key={conta.id} value={conta.id}>
-                    {conta.nome} — R${" "}
-                    {conta.saldo_atual.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <button
-            type="submit"
-            disabled={finalizarPedido.isPending || pedido.status !== "ABERTO"}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-400 py-4 text-sm font-bold uppercase text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+        {podeFinalizar && (
+          <form
+            onSubmit={(event) => void finalizar(event)}
+            className="space-y-4"
           >
-            <Check className="h-4.5 w-4.5" />
-            {finalizarPedido.isPending
-              ? "Finalizando..."
-              : pedido.status === "FECHADO"
-                ? "Pedido finalizado"
-                : `Confirmar e ${tipo === "COMPRA" ? "pagar" : "receber"}`}
-          </button>
-        </form>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Títulos, valores e vencimentos
+                </span>
+                <button
+                  type="button"
+                  onClick={adicionarTitulo}
+                  disabled={titulosDoPedido.length >= 12}
+                  className="flex items-center gap-1 rounded-lg border border-emerald-500/30 min-h-11 px-3 py-2 text-xs font-bold uppercase text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar título
+                </button>
+              </div>
+              {titulosDoPedido.map((item, indice) => (
+                <div
+                  key={item.id}
+                  className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Título {indice + 1}
+                    </span>
+                    {titulosDoPedido.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerTitulo(item.id)}
+                        aria-label={`Remover título ${indice + 1}`}
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    <label className="text-xs font-semibold text-slate-400">
+                      Valor (R$)
+                      <input
+                        required
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        placeholder="0,00"
+                        value={
+                          item.valor === null
+                            ? pedido.valor_total.toFixed(2)
+                            : item.valor
+                        }
+                        onChange={(event) =>
+                          alterarTitulo(
+                            item.id,
+                            "valor",
+                            apenasDecimal(event.target.value),
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
+                      />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-400">
+                      Vencimento
+                      <input
+                        required
+                        type="date"
+                        value={item.vencimento}
+                        onChange={(event) =>
+                          alterarTitulo(
+                            item.id,
+                            "vencimento",
+                            event.target.value,
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <label className="flex min-h-11 items-center gap-3 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-emerald-400"
+                checked={baixarAgora}
+                onChange={(event) => {
+                  setBaixarAgora(event.target.checked);
+                  if (!event.target.checked) setContaID("");
+                }}
+              />
+              Realizar baixa imediatamente
+            </label>
+
+            {baixarAgora && (
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                Conta financeira
+                <select
+                  required
+                  value={contaSelecionadaID}
+                  onChange={(event) => setContaID(event.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300"
+                >
+                  <option value="">Selecione</option>
+                  {(contasQuery.data ?? []).map((conta) => (
+                    <option key={conta.id} value={conta.id}>
+                      {conta.nome}
+                      {/* O saldo só vem para quem tem acesso às contas. */}
+                      {typeof conta.saldo_atual === "number" &&
+                        ` — R$ ${conta.saldo_atual.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <button
+              type="submit"
+              disabled={finalizarPedido.isPending || pedido.status !== "ABERTO"}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-400 py-4 text-sm font-bold uppercase text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check className="h-4.5 w-4.5" />
+              {finalizarPedido.isPending
+                ? "Finalizando..."
+                : pedido.status === "FECHADO"
+                  ? "Pedido finalizado"
+                  : `Confirmar e ${tipo === "COMPRA" ? "pagar" : "receber"}`}
+            </button>
+          </form>
+        )}
       </div>
 
       {isRecordModalOpen && (

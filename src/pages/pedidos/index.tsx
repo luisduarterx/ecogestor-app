@@ -27,6 +27,7 @@ import {
   useOrders,
   useReopenOrder,
 } from "../../utils/queries";
+import { usePermissoes } from "../../context/usePermissoes";
 import type { ApiError, OrdersResponse } from "../../utils/types";
 import Notice from "../../components/Notice";
 import {
@@ -83,6 +84,8 @@ export function Pedidos() {
   const configuracaoQuery = useConfiguracoesSistema();
   const navigate = useNavigate();
   const fiscalHabilitado = useStatusFiscal().data?.habilitado ?? false;
+  const { pode } = usePermissoes();
+  const podeDataRetroativa = pode("backdate:pedido");
   const importarParaNota = useImportarPedidoNotaFiscal();
 
   /** Cria um rascunho de NF-e a partir do pedido e abre o editor. */
@@ -316,7 +319,7 @@ export function Pedidos() {
           </div>
 
           {/* Abertura de pedido: só na listagem; com pedido aberto fica apenas a 1ª linha. */}
-          {activeSubTab === "list" && (
+          {activeSubTab === "list" && pode("create:pedido") && (
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -330,6 +333,13 @@ export function Pedidos() {
                   required
                   type="date"
                   max={hoje}
+                  min={podeDataRetroativa ? undefined : hoje}
+                  disabled={!podeDataRetroativa}
+                  title={
+                    podeDataRetroativa
+                      ? undefined
+                      : "Seu cargo não permite lançar pedidos com data retroativa."
+                  }
                   value={dataNovoPedidoExibida}
                   onChange={(event) => setDataNovoPedido(event.target.value)}
                   className="mt-1.5 block w-full md:w-44 bg-slate-950/40 text-slate-200 border border-slate-800 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
@@ -699,6 +709,7 @@ export function Pedidos() {
 
                                 {/* Venda fechada pode virar rascunho de NF-e. */}
                                 {fiscalHabilitado &&
+                                  pode("create:nota_fiscal") &&
                                   order.tipo === "VENDA" &&
                                   order.status === "FECHADO" && (
                                     <button
@@ -715,7 +726,10 @@ export function Pedidos() {
                                   )}
 
                                 {/* Open drafts directly; closed orders require reopening. */}
-                                {order.status !== "CANCELADO" && (
+                                {((order.status === "ABERTO" &&
+                                  pode("update:pedido")) ||
+                                  (order.status === "FECHADO" &&
+                                    pode("reopen:pedido"))) && (
                                   <button
                                     type="button"
                                     onClick={() => handleEditOrder(order)}
@@ -730,7 +744,8 @@ export function Pedidos() {
                                   </button>
                                 )}
 
-                                {order.status === "ABERTO" ? (
+                                {order.status === "ABERTO" &&
+                                pode("cancel:pedido") ? (
                                   <button
                                     type="button"
                                     onClick={() =>

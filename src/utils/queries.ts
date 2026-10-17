@@ -102,7 +102,8 @@ export function useSession() {
         nome: data.nome,
         email: data.email,
         cargoID: data.cargo.id,
-        permissoes: [],
+        // API anterior a esta versão não envia a lista.
+        permissoes: data.permissoes ?? [],
       } satisfies UserAuthenticated;
     },
   });
@@ -774,9 +775,10 @@ export function useFinancialCategories(tipo: "RECEITA" | "DESPESA") {
   });
 }
 
-export function useFinancialAccounts() {
+export function useFinancialAccounts({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["contas-financeiras"],
+    enabled,
     queryFn: async () => {
       const { data } =
         await api.get<FinancialAccountResponse[]>("/financeiro/contas");
@@ -785,9 +787,10 @@ export function useFinancialAccounts() {
   });
 }
 
-export function useFinancialMovements() {
+export function useFinancialMovements({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["financeiro", "movimentacoes"],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<FinancialMovementsResponse>(
         "/financeiro/movimentacoes",
@@ -798,9 +801,13 @@ export function useFinancialMovements() {
   });
 }
 
-export function useFinancialEntries(filters: FinancialEntriesFilters = {}) {
+export function useFinancialEntries(
+  filters: FinancialEntriesFilters = {},
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: ["financeiro", "lancamentos", filters],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<FinancialEntryResponse[]>(
         "/financeiro/lancamentos",
@@ -842,9 +849,10 @@ export function useCreateFinancialAccount() {
   });
 }
 
-export function useCashReconciliation() {
+export function useCashReconciliation({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["financeiro", "caixa", "consulta"],
+    enabled,
     retry: false,
     queryFn: async () => {
       const { data } = await api.get<ReconciliationCashResponse>(
@@ -855,9 +863,10 @@ export function useCashReconciliation() {
   });
 }
 
-export function useCashSessions() {
+export function useCashSessions({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["financeiro", "caixas"],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<CashResponse[]>("/financeiro/caixas");
       return data;
