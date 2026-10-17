@@ -1,3 +1,4 @@
+import { usePermissoes } from "../../context/usePermissoes";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -52,10 +53,20 @@ interface TableDraft {
 
 export function Precos() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Os preços vêm das tabelas e o cadastro usa as categorias; cada aba só
+  // aparece com as permissões que ela consulta.
+  const { pode, podeAlguma } = usePermissoes();
+  const verTabelas = pode("read:tabela");
+  const verCategorias = pode("read:categoria_material");
+  const verCadastro = podeAlguma(
+    "create:material",
+    "update:material",
+    "read:categoria_material",
+  );
 
   const [activeSubTab, setActiveSubTab] = useState<
     "tariffs" | "materials" | "customTables"
-  >("tariffs");
+  >(verTabelas ? "tariffs" : "materials");
 
   // Export/Print Modal State
   const [printTableId, setPrintTableId] = useState<number | null>(null);
@@ -105,12 +116,12 @@ export function Precos() {
   const [catalogView, setCatalogView] = useState<"materials" | "categories">(
     "materials",
   );
-  const categoriesQuery = useMaterialCategories();
+  const categoriesQuery = useMaterialCategories({ enabled: verCategorias });
   const catalogMaterialsQuery = useMaterials();
   const createCategory = useCreateMaterialCategory();
   const createMaterial = useCreateMaterial();
 
-  const tablesQuery = useTables();
+  const tablesQuery = useTables({ enabled: verTabelas });
   const defaultTable = tablesQuery.data?.find((table) => table.padrao);
   const defaultTableQuery = useTable(defaultTable?.id);
   const selectedTableQuery = useTable(selectedTableId ?? undefined);
@@ -433,36 +444,42 @@ export function Precos() {
 
           {/* Beautiful Sub-tab Selectors */}
           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0 self-start md:self-auto">
-            <button
-              onClick={() => setActiveSubTab("tariffs")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeSubTab === "tariffs"
-                  ? "bg-emerald-400 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Tabela Geral (Pátio)
-            </button>
-            <button
-              onClick={() => setActiveSubTab("materials")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                activeSubTab === "materials"
-                  ? "bg-emerald-400 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Plus className="h-3.5 w-3.5" /> Materiais & Categoria
-            </button>
-            <button
-              onClick={() => setActiveSubTab("customTables")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                activeSubTab === "customTables"
-                  ? "bg-emerald-400 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Sliders className="h-3.5 w-3.5" /> Tabelas Fornecedores
-            </button>
+            {verTabelas && (
+              <button
+                onClick={() => setActiveSubTab("tariffs")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeSubTab === "tariffs"
+                    ? "bg-emerald-400 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Tabela Geral (Pátio)
+              </button>
+            )}
+            {verCadastro && (
+              <button
+                onClick={() => setActiveSubTab("materials")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                  activeSubTab === "materials"
+                    ? "bg-emerald-400 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Plus className="h-3.5 w-3.5" /> Materiais & Categoria
+              </button>
+            )}
+            {verTabelas && (
+              <button
+                onClick={() => setActiveSubTab("customTables")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                  activeSubTab === "customTables"
+                    ? "bg-emerald-400 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Sliders className="h-3.5 w-3.5" /> Tabelas Fornecedores
+              </button>
+            )}
           </div>
         </div>
 

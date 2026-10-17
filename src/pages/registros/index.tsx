@@ -11,9 +11,11 @@ import {
 import { LayoutBase } from "../../components/LayoutBase";
 import RecordModal from "../../components/modals/RecordModal";
 import EditRecordModal from "../../components/modals/EditRecordModal";
+import { usePermissoes } from "../../context/usePermissoes";
 import { useRecords } from "../../utils/queries";
 
 export function Registro() {
+  const { pode } = usePermissoes();
   const [searchTerm, setSearchTerm] = useState("");
   const deferredSearch = useDeferredValue(searchTerm);
   const [typeFilter, setTypeFilter] = useState<"all" | "FISICA" | "JURIDICA">(
@@ -39,13 +41,15 @@ export function Registro() {
               Gestão unificada dos registros utilizados em compras e vendas.
             </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            Cadastrar Parceiro
-          </button>
+          {pode("create:registro") && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Cadastrar Parceiro
+            </button>
+          )}
         </div>
 
         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
@@ -132,14 +136,16 @@ export function Registro() {
                   Cadastrado:{" "}
                   {new Date(record.criado_em).toLocaleDateString("pt-BR")}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setEditRecordID(record.id)}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[10px] font-bold uppercase text-slate-300 hover:border-emerald-500/30 hover:text-emerald-400"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Editar
-                </button>
+                {pode("update:registro") && (
+                  <button
+                    type="button"
+                    onClick={() => setEditRecordID(record.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[10px] font-bold uppercase text-slate-300 hover:border-emerald-500/30 hover:text-emerald-400"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Editar
+                  </button>
+                )}
               </div>
             </div>
           ))}

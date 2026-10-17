@@ -49,6 +49,7 @@ import {
   type SaveTableInput,
   type PermissionResponse,
   type RoleResponse,
+  type RoleModelResponse,
   type RolesResponse,
   type SaveRoleInput,
   type AtualizarUsuarioInput,
@@ -120,9 +121,14 @@ export function useLogout() {
     },
   });
 }
-export function useDashboard(startDate: string, endDate = startDate) {
+export function useDashboard(
+  startDate: string,
+  endDate = startDate,
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: ["dashboard", "resumo", startDate, endDate],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<DashboardSummary>("/dashboard/resumo", {
         params: {
@@ -251,16 +257,24 @@ export async function fetchDashboardMaterials(
   } satisfies DashboardMaterialsReport;
 }
 
-export function useDashboardMaterials(startDate: string, endDate: string) {
+export function useDashboardMaterials(
+  startDate: string,
+  endDate: string,
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: ["dashboard", "materiais", startDate, endDate],
-    enabled: Boolean(startDate && endDate),
+    enabled: enabled && Boolean(startDate && endDate),
     queryFn: () => fetchDashboardMaterials(startDate, endDate),
   });
 }
-export function useOrders(filters: OrdersFilters = {}) {
+export function useOrders(
+  filters: OrdersFilters = {},
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: ["pedidos", filters],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<OrdersResponse[]>("/pedidos", {
         params: filters,
@@ -370,9 +384,10 @@ export function useMaterial(materialID: number) {
   });
 }
 
-export function useMaterialCategories() {
+export function useMaterialCategories({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["materiais", "categorias"],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<MaterialCategoryResponse[]>(
         "/materiais/categorias",
@@ -475,9 +490,10 @@ export function useUpdateMaterial(materialID?: number) {
   });
 }
 
-export function useTables() {
+export function useTables({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["tabelas"],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<TablesResponse[]>("/tabelas");
       return data;
@@ -567,9 +583,13 @@ export function useDeleteTable() {
   });
 }
 
-export function useInventoryBalances(categoriaID?: number) {
+export function useInventoryBalances(
+  categoriaID?: number,
+  { enabled = true } = {},
+) {
   return useQuery({
     queryKey: ["estoque", "saldos", categoriaID],
+    enabled,
     queryFn: async () => {
       const { data } = await api.get<InventoryBalancesResponse>(
         "/estoque/saldos",
@@ -1166,9 +1186,10 @@ export function useDeleteUser() {
   });
 }
 
-export function useRoles() {
+export function useRoles({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["cargos"],
+    enabled,
     queryFn: async () => (await api.get<RolesResponse[]>("/cargos")).data,
   });
 }
@@ -1196,9 +1217,10 @@ export function useRoleDetails(roleIDs: number[]) {
   });
 }
 
-export function usePermissions() {
+export function usePermissions({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["permissoes"],
+    enabled,
     queryFn: async () => {
       try {
         return (await api.get<PermissionResponse[]>("/permissoes")).data;
@@ -1224,6 +1246,21 @@ export function usePermissions() {
   });
 }
 
+export function useRoleModels() {
+  return useQuery({
+    queryKey: ["cargos", "modelos"],
+    staleTime: Infinity,
+    queryFn: async () => {
+      try {
+        return (await api.get<RoleModelResponse[]>("/cargos/modelos")).data;
+      } catch {
+        // Versões antigas da API não têm modelos; o editor segue sem eles.
+        return [];
+      }
+    },
+  });
+}
+
 export function useCreateRole() {
   const queryClient = useQueryClient();
   return useMutation<RoleResponse, ApiError, SaveRoleInput>({
@@ -1242,6 +1279,8 @@ export function useUpdateRole(roleID?: number) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cargos"] }),
         queryClient.invalidateQueries({ queryKey: ["cargo", roleID] }),
+        // O cargo editado pode ser o do próprio usuário.
+        queryClient.invalidateQueries({ queryKey: ["auth", "session"] }),
       ]);
     },
   });

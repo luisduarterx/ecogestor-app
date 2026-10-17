@@ -21,6 +21,7 @@ import { useNavigate } from "react-router";
 import ButtonDashboard from "../../components/ButtonDashboard";
 import { LayoutBase } from "../../components/LayoutBase";
 import { useLoggedUser } from "../../context/useLoggedUser";
+import { usePermissoes } from "../../context/usePermissoes";
 import {
   useDashboard,
   useFinancialEntries,
@@ -152,13 +153,25 @@ export function Dashboard() {
 
   const dashboard = useDashboard(startDate, endDate);
   const previousDashboard = useDashboard(previous.start, previous.end);
-  const purchases = useOrders({ tipo: "COMPRA", status: "FECHADO" });
-  const inventory = useInventoryBalances();
-  const payables = useFinancialEntries({
-    tipo: "PAGAR",
-    dataInicial: startDate,
-    dataFinal: endDate,
-  });
+  // Os quadros de compras, estoque e contas a pagar usam outras rotas; sem a
+  // permissão de cada uma, o quadro fica vazio em vez de dar erro.
+  const { pode } = usePermissoes();
+  const verPedidos = pode("read:pedido");
+  const verEstoque = pode("read:estoque");
+  const verLancamentos = pode("read:lancamento");
+  const purchases = useOrders(
+    { tipo: "COMPRA", status: "FECHADO" },
+    { enabled: verPedidos },
+  );
+  const inventory = useInventoryBalances(undefined, { enabled: verEstoque });
+  const payables = useFinancialEntries(
+    {
+      tipo: "PAGAR",
+      dataInicial: startDate,
+      dataFinal: endDate,
+    },
+    { enabled: verLancamentos },
+  );
   const summary = dashboard.data;
   const oldSummary = previousDashboard.data;
 
@@ -281,9 +294,9 @@ export function Dashboard() {
     void Promise.all([
       dashboard.refetch(),
       previousDashboard.refetch(),
-      purchases.refetch(),
-      inventory.refetch(),
-      payables.refetch(),
+      verPedidos && purchases.refetch(),
+      verEstoque && inventory.refetch(),
+      verLancamentos && payables.refetch(),
     ]);
   }
 

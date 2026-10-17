@@ -23,27 +23,27 @@ type Pagina = {
 
 export const PAGINAS: Pagina[] = [
   { id: "dashboard", rota: "/dashboard", permissoes: ["read:dashboard"] },
-  { id: "pedidos", rota: "/pedidos", permissoes: ["read:pedidos"] },
+  { id: "pedidos", rota: "/pedidos", permissoes: ["read:pedido"] },
   { id: "estoque", rota: "/estoque", permissoes: ["read:estoque"] },
-  { id: "precos", rota: "/precos", permissoes: ["read:materiais"] },
+  { id: "precos", rota: "/precos", permissoes: ["read:material"] },
   {
     id: "financeiro",
     rota: "/financeiro",
     permissoes: [
       "read:caixa",
-      "read:contas",
-      "read:lancamentos",
-      "read:movimentacoes_financeiras",
+      "read:conta",
+      "read:lancamento",
+      "read:movimentacao_financeira",
     ],
   },
   {
     id: "fiscal",
     rota: "/fiscal",
-    permissoes: ["read:notas_fiscais"],
+    permissoes: ["read:nota_fiscal"],
     exigeModuloFiscal: true,
   },
-  { id: "registros", rota: "/registros", permissoes: ["read:registros"] },
-  { id: "usuarios", rota: "/usuarios", permissoes: ["read:usuarios"] },
+  { id: "registros", rota: "/registros", permissoes: ["read:registro"] },
+  { id: "usuarios", rota: "/usuarios", permissoes: ["read:usuario"] },
   {
     id: "configuracoes",
     rota: "/configuracoes",

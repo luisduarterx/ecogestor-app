@@ -2,6 +2,7 @@ import { FileText, Landmark, Loader2, Lock, Sliders } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
 import AvisoAmbienteFiscal from "../../components/fiscal/AvisoAmbienteFiscal";
+import { usePermissoes } from "../../context/usePermissoes";
 import { useStatusFiscal } from "../../utils/queries";
 import { ConfiguracaoFiscalAba } from "./ConfiguracaoFiscalAba";
 import { NaturezasOperacaoAba } from "./NaturezasOperacaoAba";
@@ -11,6 +12,10 @@ type Aba = "notas" | "naturezas" | "configuracao";
 
 export function Fiscal() {
   const statusQuery = useStatusFiscal();
+  // Naturezas e configuração fiscal têm permissões próprias de leitura.
+  const { pode } = usePermissoes();
+  const verNaturezas = pode("read:natureza_operacao");
+  const verConfiguracao = pode("read:configuracao_fiscal");
   const [aba, setAba] = useState<Aba>("notas");
   const [aviso, setAviso] = useState("");
 
@@ -86,18 +91,22 @@ export function Fiscal() {
                 Icone={FileText}
                 rotulo="Notas"
               />
-              <BotaoAba
-                ativa={aba === "naturezas"}
-                onClick={() => setAba("naturezas")}
-                Icone={Landmark}
-                rotulo="Naturezas de operação"
-              />
-              <BotaoAba
-                ativa={aba === "configuracao"}
-                onClick={() => setAba("configuracao")}
-                Icone={Sliders}
-                rotulo="Configuração fiscal"
-              />
+              {verNaturezas && (
+                <BotaoAba
+                  ativa={aba === "naturezas"}
+                  onClick={() => setAba("naturezas")}
+                  Icone={Landmark}
+                  rotulo="Naturezas de operação"
+                />
+              )}
+              {verConfiguracao && (
+                <BotaoAba
+                  ativa={aba === "configuracao"}
+                  onClick={() => setAba("configuracao")}
+                  Icone={Sliders}
+                  rotulo="Configuração fiscal"
+                />
+              )}
             </div>
           </div>
 
@@ -113,8 +122,10 @@ export function Fiscal() {
           )}
 
           {aba === "notas" && <NotasFiscaisAba />}
-          {aba === "naturezas" && <NaturezasOperacaoAba onAviso={setAviso} />}
-          {aba === "configuracao" && (
+          {aba === "naturezas" && verNaturezas && (
+            <NaturezasOperacaoAba onAviso={setAviso} />
+          )}
+          {aba === "configuracao" && verConfiguracao && (
             <ConfiguracaoFiscalAba onAviso={setAviso} />
           )}
         </div>

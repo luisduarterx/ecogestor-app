@@ -542,7 +542,7 @@ export default function NewOrder({
                 <User className="h-4 w-4 text-emerald-400" />
                 Registro do pedido
               </h3>
-              {pode("create:registros") && (
+              {pode("create:registro") && (
                 <button
                   type="button"
                   onClick={() => setIsRecordModalOpen(true)}

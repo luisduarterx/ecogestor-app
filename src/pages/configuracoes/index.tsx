@@ -1,3 +1,4 @@
+import { usePermissoes } from "../../context/usePermissoes";
 import {
   AlertCircle,
   Building2,
@@ -390,6 +391,7 @@ function FormularioConfiguracoes({
   mensagemSucesso,
   setMensagemSucesso,
 }: FormularioConfiguracoesProps) {
+  const { pode } = usePermissoes();
   const { user } = useLoggedUser();
   const atualizarConfiguracoes = useAtualizarConfiguracoesSistema();
   const [original] = useState(() => paraFormulario(configuracao));
@@ -404,7 +406,9 @@ function FormularioConfiguracoes({
   const possuiAlteracoes = Object.keys(alteracoes).length > 0;
   const configuracaoNova = configuracao === null;
   const podeSalvar =
-    (possuiAlteracoes || configuracaoNova) && !atualizarConfiguracoes.isPending;
+    pode("update:configuracoes") &&
+    (possuiAlteracoes || configuracaoNova) &&
+    !atualizarConfiguracoes.isPending;
   const ultimaGravacao = formatarDataHora(configuracao?.atualizadoEm);
   const dadosCupom = paraEnvio(formulario);
   const modeloCupom = configuracaoParaModeloCupom({
