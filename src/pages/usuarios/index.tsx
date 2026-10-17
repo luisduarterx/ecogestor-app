@@ -17,6 +17,7 @@ import { LayoutBase } from "../../components/LayoutBase";
 import NewRoleModal from "../../components/modals/NewRoleModal";
 import NewUserModal from "../../components/modals/NewUserModal";
 import { useLoggedUser } from "../../context/useLoggedUser";
+import { usePermissoes } from "../../context/usePermissoes";
 import {
   useDeleteRole,
   useDeleteUser,
@@ -48,14 +49,20 @@ export function Usuarios() {
   } | null>(null);
   const [feedback, setFeedback] = useState("");
   const { user: loggedUser } = useLoggedUser();
+  // Cargos e permissões só carregam para quem pode ver cargos.
+  const { pode } = usePermissoes();
+  const verCargos = pode("read:cargo");
+  const podeCriarUsuario = verCargos && pode("create:usuario");
+  const podeEditarUsuario = verCargos && pode("update:usuario");
+  const podeExcluirUsuario = pode("delete:usuario");
   const usersQuery = useUsers();
-  const rolesQuery = useRoles();
+  const rolesQuery = useRoles({ enabled: verCargos });
   const roleIDs = useMemo(
     () => (rolesQuery.data ?? []).map((role) => role.id),
     [rolesQuery.data],
   );
   const roleDetailsQuery = useRoleDetails(roleIDs);
-  const permissionsQuery = usePermissions();
+  const permissionsQuery = usePermissions({ enabled: verCargos });
   const deleteUser = useDeleteUser();
   const deleteRole = useDeleteRole();
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
@@ -88,7 +95,8 @@ export function Usuarios() {
     roleByID.get(item.cargoID)?.nome.toUpperCase().includes("ADMIN"),
   ).length;
   const loading =
-    usersQuery.isPending || rolesQuery.isPending || permissionsQuery.isPending;
+    usersQuery.isPending ||
+    (verCargos && (rolesQuery.isPending || permissionsQuery.isPending));
   const loadErrors = [
     usersQuery.isError ? "usuários" : null,
     rolesQuery.isError ? "cargos" : null,
@@ -126,17 +134,19 @@ export function Usuarios() {
             <Wallet className="h-4 w-4" />
             Gestão de Usuários
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("roles")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeSubTab === "roles" ? "border border-amber-500/30 bg-amber-500/15 text-amber-400" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}
-          >
-            <Shield className="h-4 w-4" />
-            Gestão de Cargos
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] text-amber-400">
-              {roles.length}
-            </span>
-          </button>
+          {verCargos && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("roles")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeSubTab === "roles" ? "border border-amber-500/30 bg-amber-500/15 text-amber-400" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"}`}
+            >
+              <Shield className="h-4 w-4" />
+              Gestão de Cargos
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] text-amber-400">
+                {roles.length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -153,8 +163,10 @@ export function Usuarios() {
               type="button"
               onClick={() => {
                 void usersQuery.refetch();
-                void rolesQuery.refetch();
-                void permissionsQuery.refetch();
+                if (verCargos) {
+                  void rolesQuery.refetch();
+                  void permissionsQuery.refetch();
+                }
               }}
               className="rounded-lg bg-rose-400 px-3 py-2 text-xs font-bold uppercase text-slate-950 hover:bg-rose-300"
             >
@@ -176,18 +188,20 @@ export function Usuarios() {
                   são herdadas exclusivamente do cargo.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingUser(null);
-                  setUserModalOpen(true);
-                }}
-                disabled={roles.length === 0}
-                className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-mono text-xs font-bold uppercase text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-              >
-                <UserPlus className="h-4.5 w-4.5" />
-                Cadastrar Novo Usuário
-              </button>
+              {podeCriarUsuario && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingUser(null);
+                    setUserModalOpen(true);
+                  }}
+                  disabled={roles.length === 0}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-mono text-xs font-bold uppercase text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  <UserPlus className="h-4.5 w-4.5" />
+                  Cadastrar Novo Usuário
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -203,12 +217,14 @@ export function Usuarios() {
                 value={users.length}
                 color="text-emerald-400"
               />
-              <Metric
-                icon={ShieldCheck}
-                label="Administradores"
-                value={adminCount}
-                color="text-amber-400"
-              />
+              {verCargos && (
+                <Metric
+                  icon={ShieldCheck}
+                  label="Administradores"
+                  value={adminCount}
+                  color="text-amber-400"
+                />
+              )}
             </div>
 
             <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg lg:flex-row">
@@ -304,50 +320,59 @@ export function Usuarios() {
                             <td className="px-4 py-4">
                               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold">
                                 <ShieldCheck className="h-3 w-3" />
-                                {role?.nome ?? `Cargo #${item.cargoID}`}
+                                {role?.nome ??
+                                  (verCargos ? `Cargo #${item.cargoID}` : "—")}
                               </span>
                             </td>
                             <td className="px-4 py-4 font-mono text-slate-400">
                               {item.telefone || "Não informado"}
                             </td>
                             <td className="px-4 py-4">
-                              <span className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
-                                {roleDetail?.permissoes.length ?? 0} acessos
-                                herdados
-                              </span>
+                              {verCargos ? (
+                                <span className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                                  {roleDetail?.permissoes.length ?? 0} acessos
+                                  herdados
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-4 text-right">
                               <div className="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingUser(item);
-                                    setUserModalOpen(true);
-                                  }}
-                                  title="Editar Dados do Usuário"
-                                  className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-blue-500/20 hover:text-blue-400"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={item.id === loggedUser?.id}
-                                  onClick={() =>
-                                    setDeleteTarget({
-                                      type: "user",
-                                      id: item.id,
-                                      name: item.nome,
-                                    })
-                                  }
-                                  title={
-                                    item.id === loggedUser?.id
-                                      ? "Você não pode excluir seu próprio usuário"
-                                      : "Excluir Usuário"
-                                  }
-                                  className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-rose-500/20 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                {podeEditarUsuario && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingUser(item);
+                                      setUserModalOpen(true);
+                                    }}
+                                    title="Editar Dados do Usuário"
+                                    className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-blue-500/20 hover:text-blue-400"
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {podeExcluirUsuario && (
+                                  <button
+                                    type="button"
+                                    disabled={item.id === loggedUser?.id}
+                                    onClick={() =>
+                                      setDeleteTarget({
+                                        type: "user",
+                                        id: item.id,
+                                        name: item.nome,
+                                      })
+                                    }
+                                    title={
+                                      item.id === loggedUser?.id
+                                        ? "Você não pode excluir seu próprio usuário"
+                                        : "Excluir Usuário"
+                                    }
+                                    className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-rose-500/20 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -361,7 +386,7 @@ export function Usuarios() {
           </div>
         )}
 
-        {activeSubTab === "roles" && (
+        {activeSubTab === "roles" && verCargos && (
           <div className="space-y-6">
             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl md:flex-row md:items-center">
               <div>
@@ -374,17 +399,19 @@ export function Usuarios() {
                   acesso.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingRole(null);
-                  setRoleModalOpen(true);
-                }}
-                className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-mono text-xs font-bold uppercase text-slate-950 hover:bg-emerald-400"
-              >
-                <UserPlus className="h-4.5 w-4.5" />
-                Cadastrar Novo Cargo
-              </button>
+              {pode("create:cargo") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRole(null);
+                    setRoleModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-mono text-xs font-bold uppercase text-slate-950 hover:bg-emerald-400"
+                >
+                  <UserPlus className="h-4.5 w-4.5" />
+                  Cadastrar Novo Cargo
+                </button>
+              )}
             </div>
             {roleDetailsQuery.isPending ? (
               <div className="p-12 text-center text-xs text-slate-400">
@@ -428,40 +455,44 @@ export function Usuarios() {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={!detail}
-                          onClick={() => {
-                            if (detail) {
-                              setEditingRole(detail);
-                              setRoleModalOpen(true);
+                        {pode("update:cargo") && (
+                          <button
+                            type="button"
+                            disabled={!detail}
+                            onClick={() => {
+                              if (detail) {
+                                setEditingRole(detail);
+                                setRoleModalOpen(true);
+                              }
+                            }}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+                          >
+                            <Edit3 className="h-3.5 w-3.5 text-emerald-400" />
+                            Editar
+                          </button>
+                        )}
+                        {pode("delete:cargo") && (
+                          <button
+                            type="button"
+                            disabled={assigned.length > 0}
+                            onClick={() =>
+                              setDeleteTarget({
+                                type: "role",
+                                id: role.id,
+                                name: role.nome,
+                              })
                             }
-                          }}
-                          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-50"
-                        >
-                          <Edit3 className="h-3.5 w-3.5 text-emerald-400" />
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={assigned.length > 0}
-                          onClick={() =>
-                            setDeleteTarget({
-                              type: "role",
-                              id: role.id,
-                              name: role.nome,
-                            })
-                          }
-                          title={
-                            assigned.length > 0
-                              ? "Remova ou altere os usuários vinculados antes de excluir"
-                              : "Excluir cargo"
-                          }
-                          className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Excluir
-                        </button>
+                            title={
+                              assigned.length > 0
+                                ? "Remova ou altere os usuários vinculados antes de excluir"
+                                : "Excluir cargo"
+                            }
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

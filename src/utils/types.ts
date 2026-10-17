@@ -654,6 +654,16 @@ export type PermissionResponse = {
   id: number;
   nome: string;
   descricao: string | null;
+  // Vêm do catálogo da API; ausentes em versões antigas dela.
+  modulo?: string;
+  moduloNome?: string;
+  requer?: string[];
+};
+export type RoleModelResponse = {
+  id: string;
+  nome: string;
+  descricao: string;
+  permissoes: string[];
 };
 export type UserManagementResponse = {
   id: number;

@@ -83,10 +83,9 @@ export function Financeiro() {
   // Cada parte da página aparece conforme as permissões do cargo.
   const { pode } = usePermissoes();
   const verCaixa = pode("read:caixa");
-  const verHistoricoCaixa = pode("read:caixas");
-  const verContas = pode("read:contas");
-  const verMovimentacoes = pode("read:movimentacoes_financeiras");
-  const verLancamentos = pode("read:lancamentos");
+  const verContas = pode("read:conta");
+  const verMovimentacoes = pode("read:movimentacao_financeira");
+  const verLancamentos = pode("read:lancamento");
   const verVisaoGeral = verCaixa || verContas || verMovimentacoes;
   const [activeSubTab, setActiveSubTab] = useState(
     verVisaoGeral ? "fluxo" : "abertas",
@@ -104,7 +103,7 @@ export function Financeiro() {
 
   // --- CASH REGISTER STATE & LOCAL PERSISTENCE ---
   const cashReconciliationQuery = useCashReconciliation({ enabled: verCaixa });
-  const cashSessionsQuery = useCashSessions({ enabled: verHistoricoCaixa });
+  const cashSessionsQuery = useCashSessions({ enabled: verCaixa });
   const financialAccountsQuery = useFinancialAccounts({ enabled: verContas });
   const financialMovementsQuery = useFinancialMovements({
     enabled: verMovimentacoes,
@@ -476,7 +475,7 @@ export function Financeiro() {
                 </p>
               </div>
               <div className="flex gap-2">
-                {pode("create:conta") && (
+                {pode("create:transferencia") && (
                   <button
                     onClick={() => setIsTransferModalOpen(true)}
                     className="flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase cursor-pointer"
@@ -1303,7 +1302,7 @@ export function Financeiro() {
                                 disabled={
                                   transfer.reversed ||
                                   transfer.isReversal ||
-                                  !pode("create:conta")
+                                  !pode("reverse:transferencia")
                                 }
                                 title={
                                   transfer.isReversal

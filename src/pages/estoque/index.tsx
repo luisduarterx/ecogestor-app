@@ -25,6 +25,7 @@ import {
 } from "../../utils/queries";
 import type { ApiError } from "../../utils/types";
 
+import { usePermissoes } from "../../context/usePermissoes";
 import RelatorioModal from "../../components/modals/RelatorioModal";
 import { criarRelatoriosEstoque } from "../../utils/relatorios/definicoes";
 import type { FormatoRelatorio } from "../../utils/relatorios/tipos";
@@ -71,10 +72,14 @@ export function Estoque() {
     number | null
   >(null);
   const [conversionActionError, setConversionActionError] = useState("");
+  // O relatório de compras e vendas vem do painel e exige read:dashboard.
+  const { pode } = usePermissoes();
+  const verRelatorio = pode("read:dashboard");
   const balancesQuery = useInventoryBalances();
   const materialsReportQuery = useDashboardMaterials(
     reportStartDate,
     reportEndDate,
+    { enabled: verRelatorio },
   );
   const movementsQuery = useInventoryMovements({});
   const conversionsQuery = useInventoryConversions(
@@ -339,24 +344,28 @@ export function Estoque() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setIsConversionModalOpen(true);
-              }}
-              className="flex items-center justify-center gap-1.5 bg-sky-500/10 hover:bg-sky-500 hover:text-slate-950 text-sky-400 border border-sky-500/20 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 cursor-pointer"
-            >
-              <ArrowRightLeft className="h-4 w-4" />
-              Processar Conversão
-            </button>
-            <button
-              onClick={() => {
-                setIsMovementModalOpen(true);
-              }}
-              className="flex items-center justify-center gap-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              Ajuste de Saldo
-            </button>
+            {pode("create:conversao_estoque") && (
+              <button
+                onClick={() => {
+                  setIsConversionModalOpen(true);
+                }}
+                className="flex items-center justify-center gap-1.5 bg-sky-500/10 hover:bg-sky-500 hover:text-slate-950 text-sky-400 border border-sky-500/20 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 cursor-pointer"
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                Processar Conversão
+              </button>
+            )}
+            {pode("create:ajuste_estoque") && (
+              <button
+                onClick={() => {
+                  setIsMovementModalOpen(true);
+                }}
+                className="flex items-center justify-center gap-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-150 shadow-md cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Ajuste de Saldo
+              </button>
+            )}
           </div>
         </div>
 
@@ -387,18 +396,20 @@ export function Estoque() {
             >
               Extrato de Material
             </button>
-            <button
-              onClick={() => {
-                setActiveSubTab("period-report");
-              }}
-              className={`flex-1 sm:flex-initial sm:px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-150 cursor-pointer ${
-                activeSubTab === "period-report"
-                  ? "bg-emerald-400 text-slate-950 shadow-md font-extrabold"
-                  : "text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              Compras e Vendas
-            </button>
+            {verRelatorio && (
+              <button
+                onClick={() => {
+                  setActiveSubTab("period-report");
+                }}
+                className={`flex-1 sm:flex-initial sm:px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-150 cursor-pointer ${
+                  activeSubTab === "period-report"
+                    ? "bg-emerald-400 text-slate-950 shadow-md font-extrabold"
+                    : "text-slate-400 hover:text-slate-100"
+                }`}
+              >
+                Compras e Vendas
+              </button>
+            )}
             <button
               onClick={() => {
                 setActiveSubTab("conversions");
@@ -999,18 +1010,19 @@ export function Estoque() {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          {conversion.status === "ATIVA" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setReverseConfirmationID(conversion.id)
-                              }
-                              title="Estornar conversão"
-                              className="rounded-lg bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500 hover:text-slate-950"
-                            >
-                              <Undo2 className="h-4 w-4" />
-                            </button>
-                          )}
+                          {conversion.status === "ATIVA" &&
+                            pode("reverse:conversao_estoque") && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReverseConfirmationID(conversion.id)
+                                }
+                                title="Estornar conversão"
+                                className="rounded-lg bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500 hover:text-slate-950"
+                              >
+                                <Undo2 className="h-4 w-4" />
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>

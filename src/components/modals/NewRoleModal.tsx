@@ -1,6 +1,25 @@
-import { Check, Key, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Check,
+  Contact,
+  FileText,
+  Key,
+  Package,
+  Settings,
+  ShieldCheck,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
+  Wallet,
+  X,
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { useCreateRole, useUpdateRole } from "../../utils/queries";
+import {
+  useCreateRole,
+  useRoleModels,
+  useUpdateRole,
+} from "../../utils/queries";
 import type {
   ApiError,
   PermissionResponse,
@@ -15,16 +34,23 @@ interface NewRoleModalProps {
   onClose: () => void;
 }
 
-const actionLabels: Record<string, string> = {
-  create: "Criar",
-  read: "Visualizar",
-  update: "Editar",
-  delete: "Excluir",
-  finalize: "Finalizar",
-  cancel: "Cancelar",
-  reopen: "Reabrir",
-  reverse: "Estornar",
-  backdate: "Data retroativa em",
+const moduleIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  pedidos: ShoppingCart,
+  cadastros: Contact,
+  estoque: Package,
+  financeiro: Wallet,
+  fiscal: FileText,
+  relatorios: BarChart3,
+  administracao: Settings,
+};
+
+type PermissionGroup = {
+  id: string;
+  nome: string;
+  items: PermissionResponse[];
 };
 
 export default function NewRoleModal({
@@ -34,23 +60,65 @@ export default function NewRoleModal({
 }: NewRoleModalProps) {
   const createRole = useCreateRole();
   const updateRole = useUpdateRole(role?.id);
+  const modelsQuery = useRoleModels();
+  const models = modelsQuery.data ?? [];
   const [name, setName] = useState(role?.nome ?? "");
   const [selected, setSelected] = useState<number[]>(
     role?.permissoes.map((item) => item.id) ?? [],
   );
+  const [activeModels, setActiveModels] = useState<string[]>([]);
   const [error, setError] = useState("");
   const pending = createRole.isPending || updateRole.isPending;
+
+  const idByName = useMemo(
+    () => new Map(permissions.map((item) => [item.nome, item.id])),
+    [permissions],
+  );
+  const labelByName = useMemo(
+    () =>
+      new Map(
+        permissions.map((item) => [item.nome, item.descricao || item.nome]),
+      ),
+    [permissions],
+  );
+
+  // A API devolve as permissões já na ordem dos módulos.
   const groups = useMemo(() => {
-    const grouped = new Map<string, PermissionResponse[]>();
+    const grouped = new Map<string, PermissionGroup>();
     permissions.forEach((permission) => {
-      const resource = permission.nome.split(":")[1] ?? "geral";
-      const normalized = resource.replace(/s$/, "");
-      grouped.set(normalized, [...(grouped.get(normalized) ?? []), permission]);
+      const id = permission.modulo ?? "outros";
+      const group = grouped.get(id) ?? {
+        id,
+        nome: permission.moduloNome ?? "Outras permissões",
+        items: [],
+      };
+      group.items.push(permission);
+      grouped.set(id, group);
     });
-    return [...grouped.entries()].sort(([a], [b]) =>
-      a.localeCompare(b, "pt-BR"),
-    );
+    return [...grouped.values()];
   }, [permissions]);
+
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+  // Permissões marcadas cujas dependências estão desmarcadas.
+  const missingByPermission = useMemo(() => {
+    const missing = new Map<number, string[]>();
+    permissions.forEach((permission) => {
+      if (!selectedSet.has(permission.id)) return;
+      const absent = (permission.requer ?? []).filter((nome) => {
+        const id = idByName.get(nome);
+        return id !== undefined && !selectedSet.has(id);
+      });
+      if (absent.length > 0) missing.set(permission.id, absent);
+    });
+    return missing;
+  }, [permissions, selectedSet, idByName]);
+
+  function idsOf(names: readonly string[]) {
+    return names
+      .map((nome) => idByName.get(nome))
+      .filter((id): id is number => id !== undefined);
+  }
 
   function toggle(ids: number[], enabled?: boolean) {
     setSelected((current) => {
@@ -64,6 +132,48 @@ export default function NewRoleModal({
             ? next.add(id)
             : next.delete(id),
       );
+      return [...next];
+    });
+  }
+
+  // Ligar um modelo marca as permissões dele. Desligar desmarca só as que
+  // nenhum outro modelo ligado usa, então dá para combinar modelos.
+  function toggleModel(modelID: string) {
+    const model = models.find((item) => item.id === modelID);
+    if (!model) return;
+    if (activeModels.includes(modelID)) {
+      const stillUsed = new Set(
+        models
+          .filter(
+            (item) => item.id !== modelID && activeModels.includes(item.id),
+          )
+          .flatMap((item) => item.permissoes),
+      );
+      toggle(
+        idsOf(model.permissoes.filter((nome) => !stillUsed.has(nome))),
+        false,
+      );
+      setActiveModels((current) => current.filter((id) => id !== modelID));
+    } else {
+      toggle(idsOf(model.permissoes), true);
+      setActiveModels((current) => [...current, modelID]);
+    }
+  }
+
+  function addMissingDependencies() {
+    setSelected((current) => {
+      const next = new Set(current);
+      const pendingIds = [...current];
+      while (pendingIds.length > 0) {
+        const currentID = pendingIds.pop();
+        const permission = permissions.find((item) => item.id === currentID);
+        idsOf(permission?.requer ?? []).forEach((id) => {
+          if (!next.has(id)) {
+            next.add(id);
+            pendingIds.push(id);
+          }
+        });
+      }
       return [...next];
     });
   }
@@ -110,7 +220,7 @@ export default function NewRoleModal({
                   : "Cadastrar Novo Cargo / Função"}
               </h3>
               <p className="text-xs text-slate-400">
-                Defina o cargo e configure sua matriz de permissões.
+                Dê um nome ao cargo e escolha o que ele pode fazer.
               </p>
             </div>
           </div>
@@ -143,10 +253,54 @@ export default function NewRoleModal({
                 />
               </label>
             </div>
+            {models.length > 0 && (
+              <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div>
+                  <span className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                    <Sparkles className="h-4 w-4 text-emerald-400" />
+                    Começar de um modelo
+                  </span>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Os modelos marcam as permissões de uma função comum. Dá para
+                    combinar mais de um e ajustar abaixo antes de salvar.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {models.map((model) => {
+                    const active = activeModels.includes(model.id);
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleModel(model.id)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-emerald-500/40 bg-emerald-500/10"
+                            : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                        }`}
+                      >
+                        <span
+                          className={`flex items-center gap-1.5 text-xs font-bold ${
+                            active ? "text-emerald-300" : "text-slate-200"
+                          }`}
+                        >
+                          {active && <Check className="h-3.5 w-3.5" />}
+                          {model.nome}
+                        </span>
+                        <span className="mt-1 block text-[10px] leading-snug text-slate-400">
+                          {model.descricao}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3.5">
               <span className="flex items-center gap-2 text-xs font-bold text-slate-200">
                 <SlidersHorizontal className="h-4 w-4 text-emerald-400" />
-                Configuração da Matriz de Permissões do Cargo
+                Permissões do cargo
               </span>
               <div className="flex gap-2">
                 <button
@@ -163,48 +317,76 @@ export default function NewRoleModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     toggle(
                       permissions.map((item) => item.id),
                       false,
-                    )
-                  }
+                    );
+                    setActiveModels([]);
+                  }}
                   className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[11px] font-bold text-rose-400"
                 >
                   - Desmarcar Todas
                 </button>
               </div>
             </div>
-            <div className="space-y-4">
-              {groups.map(([resource, items]) => (
-                <PermissionModuleCard
-                  key={resource}
-                  title={resource.replaceAll("_", " ").toUpperCase()}
-                  icon={Key}
-                  description={`Permissões disponíveis para ${resource.replaceAll("_", " ")}.`}
-                  onToggleAll={(enabled) =>
-                    toggle(
-                      items.map((item) => item.id),
-                      enabled,
-                    )
-                  }
+            {missingByPermission.size > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                  {missingByPermission.size === 1
+                    ? "Uma permissão marcada depende de outra que está desmarcada."
+                    : `${missingByPermission.size} permissões marcadas dependem de outras que estão desmarcadas.`}
+                </span>
+                <button
+                  type="button"
+                  onClick={addMissingDependencies}
+                  className="rounded-lg border border-amber-500/40 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/10"
                 >
-                  {items.map((permission) => {
-                    const action = permission.nome.split(":")[0];
-                    return (
-                      <PermissionItem
-                        key={permission.id}
-                        label={
-                          permission.descricao ||
-                          `${actionLabels[action] ?? action} ${resource.replaceAll("_", " ")}`
-                        }
-                        checked={selected.includes(permission.id)}
-                        onChange={() => toggle([permission.id])}
-                      />
-                    );
-                  })}
-                </PermissionModuleCard>
-              ))}
+                  Marcar as que faltam
+                </button>
+              </div>
+            )}
+            <div className="space-y-4">
+              {groups.map((group) => {
+                const marked = group.items.filter((item) =>
+                  selectedSet.has(item.id),
+                ).length;
+                return (
+                  <PermissionModuleCard
+                    key={group.id}
+                    title={group.nome}
+                    icon={moduleIcons[group.id] ?? Key}
+                    description={`${marked} de ${group.items.length} marcadas`}
+                    onToggleAll={(enabled) =>
+                      toggle(
+                        group.items.map((item) => item.id),
+                        enabled,
+                      )
+                    }
+                  >
+                    {group.items.map((permission) => {
+                      const missing = missingByPermission.get(permission.id);
+                      return (
+                        <PermissionItem
+                          key={permission.id}
+                          label={permission.descricao || permission.nome}
+                          detail={permission.descricao ? permission.nome : ""}
+                          warning={
+                            missing
+                              ? `Precisa de: ${missing
+                                  .map((nome) => labelByName.get(nome) ?? nome)
+                                  .join("; ")}`
+                              : undefined
+                          }
+                          checked={selectedSet.has(permission.id)}
+                          onChange={() => toggle([permission.id])}
+                        />
+                      );
+                    })}
+                  </PermissionModuleCard>
+                );
+              })}
             </div>
           </div>
           <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/40 p-6">
