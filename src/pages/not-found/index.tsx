@@ -2,10 +2,13 @@ import { ArrowLeft, Home, SearchX } from "lucide-react";
 import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { LayoutBase } from "../../components/LayoutBase";
+import { usePermissoes } from "../../context/usePermissoes";
+import { paginaInicial } from "../../utils/acessos";
 
 export function NotFound() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { permissoes } = usePermissoes();
 
   return (
     <LayoutBase activeTab="" pageTitle="Página não encontrada">
@@ -37,8 +40,8 @@ export function NotFound() {
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
             O endereço pode ter sido alterado, removido ou digitado
-            incorretamente. Você pode retornar à tela anterior ou seguir para o
-            painel principal.
+            incorretamente. Você pode retornar à tela anterior ou seguir para a
+            página inicial.
           </p>
 
           <div className="mx-auto mt-6 flex max-w-md items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-left">
@@ -69,11 +72,13 @@ export function NotFound() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/dashboard", { replace: true })}
+              onClick={() =>
+                navigate(paginaInicial(permissoes), { replace: true })
+              }
               className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-md transition-colors hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900"
             >
               <Home className="h-4 w-4" />
-              Ir para o painel
+              Ir para a página inicial
             </button>
           </div>
 

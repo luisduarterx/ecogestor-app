@@ -16,7 +16,9 @@ export type SessionUserResponse = {
   telefone: string | null;
   cargo: {
     id: number;
+    nome: string;
   };
+  permissoes: string[];
 };
 export type ApiError = {
   nome: string;

@@ -22,6 +22,8 @@ import { NotFound } from "./pages/not-found/index.tsx";
 import { Configuracoes } from "./pages/configuracoes/index.tsx";
 import { Fiscal } from "./pages/fiscal/index.tsx";
 import { NotaFiscalPagina } from "./pages/fiscal/NotaFiscalPagina.tsx";
+import { RotaPermitida } from "./pages/RotaPermitida.tsx";
+import { SemAcesso } from "./pages/sem-acesso/index.tsx";
 
 const router = createBrowserRouter([
   {
@@ -29,43 +31,87 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/dashboard",
-        element: <Dashboard />,
+        element: (
+          <RotaPermitida pagina="dashboard">
+            <Dashboard />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/pedidos",
-        element: <Pedidos />,
+        element: (
+          <RotaPermitida pagina="pedidos">
+            <Pedidos />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/estoque",
-        element: <Estoque />,
+        element: (
+          <RotaPermitida pagina="estoque">
+            <Estoque />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/precos",
-        element: <Precos />,
+        element: (
+          <RotaPermitida pagina="precos">
+            <Precos />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/financeiro",
-        element: <Financeiro />,
+        element: (
+          <RotaPermitida pagina="financeiro">
+            <Financeiro />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/usuarios",
-        element: <Usuarios />,
+        element: (
+          <RotaPermitida pagina="usuarios">
+            <Usuarios />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/registros",
-        element: <Registro />,
+        element: (
+          <RotaPermitida pagina="registros">
+            <Registro />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/configuracoes",
-        element: <Configuracoes />,
+        element: (
+          <RotaPermitida pagina="configuracoes">
+            <Configuracoes />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/fiscal",
-        element: <Fiscal />,
+        element: (
+          <RotaPermitida pagina="fiscal">
+            <Fiscal />
+          </RotaPermitida>
+        ),
       },
       {
         path: "/fiscal/notas/:id",
-        element: <NotaFiscalPagina />,
+        element: (
+          <RotaPermitida pagina="fiscal">
+            <NotaFiscalPagina />
+          </RotaPermitida>
+        ),
+      },
+      {
+        path: "/sem-acesso",
+        element: <SemAcesso />,
       },
       {
         path: "*",

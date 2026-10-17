@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
 import { useSession } from "../utils/queries";
 import { useEffect } from "react";
+import { paginaInicial } from "../utils/acessos";
 
 export function GuestRoute() {
   const { setUser, logout } = useLoggedUser();
@@ -22,7 +23,7 @@ export function GuestRoute() {
     return <div>...Carregando</div>;
   }
   if (session.isSuccess) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={paginaInicial(session.data.permissoes)} replace />;
   }
   if (session.isError) {
     return <Outlet />;

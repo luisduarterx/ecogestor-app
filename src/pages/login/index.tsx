@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { useLoggedUser } from "../../context/useLoggedUser";
 
 import { useLogin } from "../../utils/queries";
+import { paginaInicial } from "../../utils/acessos";
 import type { ApiError } from "../../utils/types";
 
 export function Login() {
@@ -21,7 +22,7 @@ export function Login() {
       event.preventDefault();
       const result = await loginUser({ email, senha });
       setUser(result.user);
-      navigate("/dashboard");
+      navigate(paginaInicial(result.user.permissoes));
     } catch (error) {
       const apiErr = error as ApiError;
       setError(apiErr.mensagem);

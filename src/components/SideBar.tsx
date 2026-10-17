@@ -16,6 +16,8 @@ import { ItemMenu } from "./ItemMenu";
 import { useNavigate } from "react-router";
 import { useState } from "react";
 import { useStatusFiscal } from "../utils/queries";
+import { usePermissoes } from "../context/usePermissoes";
+import { podeAcessarPagina, type PaginaID } from "../utils/acessos";
 
 interface SidebarProps {
   tab: string;
@@ -35,7 +37,13 @@ export default function Sidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const statusFiscalQuery = useStatusFiscal();
-  const menuItems = [
+  const { permissoes } = usePermissoes();
+  const todosOsItens: {
+    id: PaginaID;
+    label: string;
+    icon: typeof LayoutDashboard;
+    link: string;
+  }[] = [
     {
       id: "dashboard",
       label: "Painel Geral",
@@ -67,17 +75,12 @@ export default function Sidebar({
       icon: DollarSign,
       link: "/financeiro",
     },
-    // O menu Fiscal só aparece com o módulo contratado e ativo.
-    ...(statusFiscalQuery.data?.habilitado
-      ? [
-          {
-            id: "fiscal",
-            label: "Fiscal",
-            icon: Receipt,
-            link: "/fiscal",
-          },
-        ]
-      : []),
+    {
+      id: "fiscal",
+      label: "Fiscal",
+      icon: Receipt,
+      link: "/fiscal",
+    },
     {
       id: "registros",
       label: "Clientes e Fornecedores",
@@ -97,6 +100,11 @@ export default function Sidebar({
       link: "/configuracoes",
     },
   ];
+  // Cada menu só aparece para quem pode usar a página. O Fiscal também exige
+  // o módulo contratado e ativo.
+  const menuItems = todosOsItens.filter((item) =>
+    podeAcessarPagina(item.id, permissoes, statusFiscalQuery.data?.habilitado),
+  );
   const [activeTab, setActiveTab] = useState(tab);
 
   return (
