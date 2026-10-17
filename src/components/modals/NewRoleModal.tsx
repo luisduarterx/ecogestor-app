@@ -387,7 +387,6 @@ export default function NewRoleModal({
                         <PermissionItem
                           key={permission.id}
                           label={permission.descricao || permission.nome}
-                          detail={permission.descricao ? permission.nome : ""}
                           warning={
                             missing
                               ? `Precisa de: ${missing
