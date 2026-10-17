@@ -2,6 +2,11 @@
 
 Estas instruções se aplicam a todo o repositório.
 
+## Planejamento e autorização
+
+- Toda implementação deve ser planejada antes de começar. Apresente o plano ao usuário e aguarde a aprovação antes de alterar arquivos ou instalar dependências.
+- Decisões que alterem profundamente o projeto (arquitetura, dependências centrais, contratos da API, fluxo de autenticação, estrutura de pastas, infraestrutura de build ou deploy) exigem autorização explícita do usuário.
+
 ## Fluxo Git obrigatório
 
 Antes de alterar qualquer arquivo:
@@ -14,14 +19,29 @@ Antes de alterar qualquer arquivo:
    - `codex/corrigir-data-invalida-dashboard`
    - `codex/adicionar-exportacao-estoque`
    - `codex/atualizar-instrucoes-ia`
-6. A branch deve nascer da `main` atualizada e limpa. Se isso não for possível por causa de alterações locais, isole primeiro o trabalho existente em sua própria branch e só então inicie a nova tarefa.
+6. A branch deve nascer da `main` atualizada (`git fetch origin` e criação a partir de `origin/main`) e limpa. Se isso não for possível por causa de alterações locais, isole primeiro o trabalho existente em sua própria branch e só então inicie a nova tarefa.
 7. Não misture alterações independentes na mesma branch ou commit.
 
 Antes de entregar:
 
 1. Confira novamente `git status --short --branch` e revise `git diff`.
-2. Informe ao usuário a branch utilizada, os arquivos alterados e as validações executadas.
-3. Não faça push, merge, rebase, force-push ou abra pull request sem solicitação explícita.
+2. Rode a suíte completa de validação (seção "Validação mínima"). Não faça push com falhas causadas pela alteração.
+3. Quando houver mudança de interface, teste o fluxo afetado no navegador antes de concluir.
+4. Ao concluir a tarefa, faça o push da branch e abra automaticamente o pull request para revisão, com título e descrição em português do Brasil.
+5. Informe ao usuário a branch utilizada, os arquivos alterados, as validações executadas e o link do pull request.
+6. Não faça merge, rebase de branches publicadas ou force-push sem solicitação explícita.
+
+## Mensagens de commit
+
+Siga o padrão já usado no histórico (Conventional Commits em português do Brasil, no imperativo da terceira pessoa e em minúsculas):
+
+```text
+tipo(escopo): descreve a alteração
+```
+
+- Tipos usados: `feat`, `fix`, `test`, `ci`, `docs`, `refactor`, `chore`.
+- O escopo indica a área afetada, por exemplo `auth`, `pedidos`, `fiscal`, `estoque`, `financeiro`.
+- Exemplos: `feat(pedidos): adiciona data do pedido para lançamentos retroativos`, `fix(fiscal): atualiza o editor quando a nota chega mais recente que o formulário`.
 
 ## Idioma obrigatório
 
