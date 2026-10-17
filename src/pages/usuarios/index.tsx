@@ -91,12 +91,24 @@ export function Usuarios() {
     });
   }, [roleFilter, searchTerm, users]);
 
-  // Administrador é quem pode editar cargos, qualquer que seja o nome do cargo.
-  const adminCount = users.filter((item) =>
-    detailByID
+  // Administrador é quem pode editar cargos, qualquer que seja o nome do cargo:
+  // precisa do acesso a Usuários e de update:cargo, como a API exige.
+  const adminCount = users.filter((item) => {
+    const nomes = detailByID
       .get(item.cargoID)
-      ?.permissoes.some((permissao) => permissao.nome === "update:cargo"),
-  ).length;
+      ?.permissoes.map((permissao) => permissao.nome);
+    return nomes?.includes("access:usuarios") && nomes.includes("update:cargo");
+  }).length;
+  // Nome de cada módulo, pela permissão de acesso dele (`access:<modulo>`),
+  // na ordem do catálogo.
+  const moduloPorAcesso = new Map(
+    (permissionsQuery.data ?? [])
+      .filter((permissao) => permissao.nome.startsWith("access:"))
+      .map((permissao) => [
+        permissao.nome,
+        permissao.moduloNome ?? permissao.nome,
+      ]),
+  );
   const loading =
     usersQuery.isPending ||
     (verCargos && (rolesQuery.isPending || permissionsQuery.isPending));
@@ -456,6 +468,15 @@ export function Usuarios() {
                             {permissionsQuery.data?.length ?? 0}
                           </span>
                         </div>
+                        <ModulosDoCargo
+                          modulos={[...moduloPorAcesso]
+                            .filter(([acesso]) =>
+                              detail?.permissoes.some(
+                                (permissao) => permissao.nome === acesso,
+                              ),
+                            )
+                            .map(([, nome]) => nome)}
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {pode("update:cargo") && (
@@ -584,6 +605,28 @@ function Metric({
         {label}
       </span>
       <p className={`font-mono text-3xl font-black ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function ModulosDoCargo({ modulos }: { modulos: string[] }) {
+  if (modulos.length === 0) {
+    return (
+      <p className="text-[10px] text-slate-500">
+        Nenhum módulo liberado: o cargo não vê nenhuma página.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {modulos.map((modulo) => (
+        <span
+          key={modulo}
+          className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+        >
+          {modulo}
+        </span>
+      ))}
     </div>
   );
 }
