@@ -9,6 +9,11 @@ import type {
   RegimeTributario,
   TipoEventoNotaFiscal,
 } from "./types";
+import {
+  MENSAGEM_ACESSO_NEGADO,
+  ehAcessoNegado,
+  ehSessaoInvalida,
+} from "./autorizacao";
 
 /** Código fiscal com descrição e indicação de suporte na emissão da V1. */
 export type CodigoFiscal = {
@@ -251,15 +256,16 @@ export function formatarAliquota(valor: number | null) {
 }
 
 /**
- * Mensagem de erro das rotas fiscais. A API responde 401 tanto sem sessão
- * quanto sem permissão; nos dois casos a mensagem da API é exibida.
+ * Mensagem de erro das rotas fiscais. Sem permissão a API responde `403`
+ * (`Acesso Negado`); sem sessão, `401`, e o usuário é levado ao login.
  */
 export function mensagemErroFiscal(erro: unknown, padrao: string) {
   const apiErro = erro as ApiError | undefined;
-  if (apiErro?.statusCode === 401) {
-    return (
-      apiErro.mensagem ?? "Você não tem permissão para realizar esta ação."
-    );
+  if (ehAcessoNegado(apiErro)) {
+    return apiErro?.mensagem ?? MENSAGEM_ACESSO_NEGADO;
+  }
+  if (ehSessaoInvalida(apiErro)) {
+    return "Sua sessão expirou. Entre novamente.";
   }
   return apiErro?.mensagem ?? padrao;
 }

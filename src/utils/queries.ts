@@ -80,6 +80,9 @@ export const useLogin = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // As chaves "auth" ficam fora do redirecionamento global por sessão
+    // expirada (ver `context/QueryClient.tsx`).
+    mutationKey: ["auth", "signin"],
     mutationFn: async (credentials: { email: string; senha: string }) => {
       const { data } = await api.post<LoginReponse>("auth/signin", credentials);
       return data;
@@ -102,7 +105,7 @@ export function useSession() {
         nome: data.nome,
         email: data.email,
         cargoID: data.cargo.id,
-        permissoes: [],
+        permissoes: data.permissoes,
       } satisfies UserAuthenticated;
     },
   });
@@ -111,6 +114,7 @@ export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ["auth", "signout"],
     mutationFn: async () => {
       await api.post("auth/signout");
     },

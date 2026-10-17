@@ -16,7 +16,10 @@ export type SessionUserResponse = {
   telefone: string | null;
   cargo: {
     id: number;
+    nome: string;
   };
+  /** Nomes das permissões vigentes do cargo, em ordem alfabética. */
+  permissoes: string[];
 };
 export type ApiError = {
   nome: string;
