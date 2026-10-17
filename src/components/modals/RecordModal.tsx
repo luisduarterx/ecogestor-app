@@ -52,7 +52,7 @@ export default function RecordModal({
   );
   const [pix, setPix] = useState(record?.dados_pagamento?.chave ?? "");
   const [personType, setPersonType] = useState<"FISICA" | "JURIDICA">(
-    record?.tipo ?? "JURIDICA",
+    record?.tipo ?? "FISICA",
   );
   const [priceTableId, setPriceTableId] = useState(
     record ? String(record.tabela.id) : "",
