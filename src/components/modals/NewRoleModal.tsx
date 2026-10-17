@@ -11,6 +11,8 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Sparkles,
+  Tag,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -39,17 +41,21 @@ const moduleIcons: Record<
   React.ComponentType<{ className?: string }>
 > = {
   pedidos: ShoppingCart,
-  cadastros: Contact,
+  registros: Contact,
+  precos: Tag,
   estoque: Package,
   financeiro: Wallet,
   fiscal: FileText,
-  relatorios: BarChart3,
-  administracao: Settings,
+  dashboard: BarChart3,
+  usuarios: Users,
+  configuracoes: Settings,
 };
 
 type PermissionGroup = {
   id: string;
   nome: string;
+  // Permissão `access:<modulo>`, que liga o módulo. Ausente em "outros".
+  access?: PermissionResponse;
   items: PermissionResponse[];
 };
 
@@ -87,12 +93,13 @@ export default function NewRoleModal({
     const grouped = new Map<string, PermissionGroup>();
     permissions.forEach((permission) => {
       const id = permission.modulo ?? "outros";
-      const group = grouped.get(id) ?? {
+      const group: PermissionGroup = grouped.get(id) ?? {
         id,
         nome: permission.moduloNome ?? "Outras permissões",
         items: [],
       };
-      group.items.push(permission);
+      if (permission.nome === `access:${id}`) group.access = permission;
+      else group.items.push(permission);
       grouped.set(id, group);
     });
     return [...grouped.values()];
@@ -352,15 +359,24 @@ export default function NewRoleModal({
                 const marked = group.items.filter((item) =>
                   selectedSet.has(item.id),
                 ).length;
+                const access = group.access;
                 return (
                   <PermissionModuleCard
                     key={group.id}
                     title={group.nome}
                     icon={moduleIcons[group.id] ?? Key}
                     description={`${marked} de ${group.items.length} marcadas`}
+                    access={
+                      access && {
+                        checked: selectedSet.has(access.id),
+                        onChange: () => toggle([access.id]),
+                      }
+                    }
                     onToggleAll={(enabled) =>
                       toggle(
-                        group.items.map((item) => item.id),
+                        [...(access ? [access] : []), ...group.items].map(
+                          (item) => item.id,
+                        ),
                         enabled,
                       )
                     }
