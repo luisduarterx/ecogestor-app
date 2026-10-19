@@ -70,20 +70,20 @@ export function TrocaSenhaObrigatoriaModal({
         aria-modal="true"
         aria-labelledby="troca-senha-titulo"
         aria-describedby="troca-senha-descricao"
-        className="my-auto w-full max-w-xl overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl shadow-slate-950/60"
+        className="my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-slate-950/60"
       >
-        <div className="space-y-5 border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/60 p-6 sm:p-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
-              <KeyRound className="h-7 w-7" />
+        <div className="flex flex-col gap-2.5 border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/60 px-5 py-3.5 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-400">
+              <KeyRound className="h-5.5 w-5.5" />
             </div>
-            <div className="space-y-1.5">
-              <span className="inline-block rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-amber-400">
+            <div className="min-w-0 space-y-1">
+              <span className="inline-block rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-amber-400">
                 Troca de senha pendente
               </span>
               <h1
                 id="troca-senha-titulo"
-                className="text-xl font-bold text-slate-50 sm:text-2xl"
+                className="m-0 text-lg font-bold leading-tight tracking-normal text-slate-50 sm:text-xl"
               >
                 Alteração Obrigatória de Senha
               </h1>
@@ -92,28 +92,25 @@ export function TrocaSenhaObrigatoriaModal({
 
           <p
             id="troca-senha-descricao"
-            className="text-sm leading-6 text-slate-400"
+            className="text-sm leading-5 text-slate-400"
           >
             Sua conta está com uma{" "}
             <strong className="text-slate-100">senha provisória</strong> ou o
-            administrador exigiu a troca da senha. Para garantir a privacidade e
-            a segurança do sistema, cadastre uma nova senha pessoal antes de
-            prosseguir.
+            administrador exigiu a troca. Cadastre uma nova senha pessoal para
+            continuar.
           </p>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-xs font-bold text-slate-950"
-                aria-hidden
-              >
-                {iniciaisDoNome(usuario.nome)}
-              </span>
-              <span className="truncate font-mono text-sm font-bold text-slate-100">
-                {usuario.nome}
-              </span>
-            </div>
-            <span className="max-w-full truncate rounded-lg bg-slate-950 px-3 py-1.5 font-mono text-sm text-slate-400">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500 text-[11px] font-bold text-slate-950"
+              aria-hidden
+            >
+              {iniciaisDoNome(usuario.nome)}
+            </span>
+            <span className="truncate font-mono text-xs font-bold text-slate-100">
+              {usuario.nome}
+            </span>
+            <span className="max-w-full truncate rounded-md bg-slate-950 sm:ml-auto px-2.5 py-1 font-mono text-xs text-slate-400">
               login:{" "}
               <span className="font-bold text-emerald-400">
                 {usuario.email}
@@ -125,7 +122,7 @@ export function TrocaSenhaObrigatoriaModal({
         <form
           onSubmit={confirmar}
           noValidate
-          className="space-y-5 bg-slate-950/40 p-6 sm:p-8"
+          className="flex flex-col gap-3 bg-slate-950/40 px-5 py-3.5 sm:px-6"
         >
           <CampoSenha
             id="troca-senha-atual"
@@ -134,8 +131,7 @@ export function TrocaSenhaObrigatoriaModal({
             valor={formulario.senhaAtual}
             onChange={formulario.setSenhaAtual}
             Icone={Lock}
-            placeholder="Informe a senha recebida"
-            dica="Use a senha provisória informada pelo administrador ou a sua senha atual."
+            placeholder="Senha provisória ou atual"
             autoComplete="current-password"
             autoFocus
             desabilitado={ocupado}
@@ -170,26 +166,26 @@ export function TrocaSenhaObrigatoriaModal({
           {erro && (
             <div
               role="alert"
-              className="flex items-start gap-2.5 rounded-xl border border-rose-500/25 bg-rose-500/15 p-3.5 text-sm text-rose-200"
+              className="flex items-start gap-2.5 rounded-xl border border-rose-500/25 bg-rose-500/15 px-3.5 py-2.5 text-sm text-rose-200"
             >
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
               {erro}
             </div>
           )}
 
-          <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => void encerrarSessao()}
               disabled={ocupado}
-              className="cursor-pointer rounded-xl bg-slate-800 px-6 py-3 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sair.isPending ? "Saindo..." : "Sair"}
             </button>
             <button
               type="submit"
               disabled={ocupado}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-slate-950 transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-2.5 font-mono text-sm font-bold uppercase tracking-wider text-slate-950 transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {formulario.enviando ? (
                 <>
