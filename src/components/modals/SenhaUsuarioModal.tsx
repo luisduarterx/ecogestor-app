@@ -134,7 +134,11 @@ export default function SenhaUsuarioModal({
           </button>
         </div>
 
-        <form onSubmit={confirmar} noValidate className="flex flex-col gap-4 p-5">
+        <form
+          onSubmit={confirmar}
+          noValidate
+          className="flex flex-col gap-4 p-5"
+        >
           {ehRedefinicao ? (
             <>
               <p className="text-sm text-slate-400">
