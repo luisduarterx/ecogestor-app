@@ -7,25 +7,25 @@ export function RequisitosSenha({
   requisitos: RequisitoSenha[];
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-      <p className="mb-3 font-mono text-xs font-bold uppercase tracking-wider text-slate-400">
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+      <p className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
         Requisitos de segurança da senha:
       </p>
-      <ul className="flex flex-wrap gap-x-6 gap-y-2">
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
         {requisitos.map((requisito) => (
           <li
             key={requisito.id}
-            className={`flex items-center gap-2 text-sm ${
+            className={`flex items-center gap-2 text-xs ${
               requisito.atendido ? "text-emerald-300" : "text-slate-400"
             }`}
           >
             {requisito.atendido ? (
               <CheckCircle2
-                className="h-4.5 w-4.5 text-emerald-400"
+                className="h-4 w-4 shrink-0 text-emerald-400"
                 aria-hidden
               />
             ) : (
-              <Circle className="h-4.5 w-4.5 text-slate-600" aria-hidden />
+              <Circle className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
             )}
             {requisito.rotulo}
             <span className="sr-only">
