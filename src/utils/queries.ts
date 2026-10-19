@@ -28,6 +28,7 @@ import {
   type InventoryPagination,
   type UserAuthenticated,
   type LoginReponse,
+  type AlterarSenhaInput,
   type SessionUserResponse,
   type MaterialResponse,
   type MaterialCategoryResponse,
@@ -106,7 +107,43 @@ export function useSession() {
         email: data.email,
         cargoID: data.cargo.id,
         permissoes: data.permissoes,
+        trocaSenhaObrigatoria: data.trocaSenhaObrigatoria,
       } satisfies UserAuthenticated;
+    },
+  });
+}
+/**
+ * Troca a senha do próprio usuário. A API revoga todas as sessões, inclusive a
+ * atual, então o front entra de novo com a nova senha. `usuario` é `null`
+ * quando esse novo login falha e o usuário precisa entrar manualmente.
+ */
+export function useAlterarSenha() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { usuario: UserAuthenticated | null },
+    ApiError,
+    AlterarSenhaInput & { email: string }
+  >({
+    mutationKey: ["auth", "senha"],
+    mutationFn: async ({ email, senhaAtual, novaSenha }) => {
+      await api.patch("auth/senha", { senhaAtual, novaSenha });
+      try {
+        const { data } = await api.post<LoginReponse>("auth/signin", {
+          email,
+          senha: novaSenha,
+        });
+        return { usuario: data.user };
+      } catch {
+        return { usuario: null };
+      }
+    },
+    onSuccess: ({ usuario }) => {
+      if (usuario) {
+        queryClient.setQueryData(["auth", "session"], usuario);
+      } else {
+        queryClient.removeQueries({ queryKey: ["auth"] });
+      }
     },
   });
 }

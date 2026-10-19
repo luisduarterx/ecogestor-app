@@ -32,6 +32,7 @@ import {
   type OrderReceiptTemplate,
 } from "../../components/modals/orderReceiptModel";
 import { useLoggedUser } from "../../context/useLoggedUser";
+import { AlterarSenha } from "./AlterarSenha";
 import {
   useAtualizarConfiguracoesSistema,
   useConfiguracoesSistema,
@@ -371,6 +372,7 @@ export function Configuracoes() {
           setMensagemSucesso={setMensagemSucesso}
         />
       )}
+      <AlterarSenha />
     </LayoutBase>
   );
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   NOME_ACESSO_NEGADO,
+  NOME_TROCA_SENHA_OBRIGATORIA,
   ehAcessoNegado,
   ehRecusaDeAutorizacao,
   ehSessaoInvalida,
+  ehTrocaSenhaObrigatoria,
   temPermissao,
 } from "./autorizacao";
 
@@ -40,6 +42,26 @@ describe("ehAcessoNegado", () => {
   it("ignora outros status com o mesmo nome", () => {
     expect(ehAcessoNegado(erro(401, NOME_ACESSO_NEGADO))).toBe(false);
     expect(ehAcessoNegado(null)).toBe(false);
+  });
+});
+
+describe("ehTrocaSenhaObrigatoria", () => {
+  it("exige o status 403 e o nome da troca obrigatória", () => {
+    expect(
+      ehTrocaSenhaObrigatoria(erro(403, NOME_TROCA_SENHA_OBRIGATORIA)),
+    ).toBe(true);
+  });
+
+  it("não confunde a troca obrigatória com falta de permissão", () => {
+    expect(ehTrocaSenhaObrigatoria(erro(403, NOME_ACESSO_NEGADO))).toBe(false);
+    expect(ehAcessoNegado(erro(403, NOME_TROCA_SENHA_OBRIGATORIA))).toBe(false);
+  });
+
+  it("ignora outros status e valores que não são erros da API", () => {
+    expect(
+      ehTrocaSenhaObrigatoria(erro(401, NOME_TROCA_SENHA_OBRIGATORIA)),
+    ).toBe(false);
+    expect(ehTrocaSenhaObrigatoria(null)).toBe(false);
   });
 });
 

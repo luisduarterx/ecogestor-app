@@ -6,6 +6,7 @@ export type UserAuthenticated = {
   email: string;
   cargoID: number;
   permissoes: string[];
+  trocaSenhaObrigatoria: boolean;
 };
 
 export type LoggedUserContextType = {

@@ -1,7 +1,7 @@
-import { Lock, User, AlertCircle, Sparkles } from "lucide-react";
+import { Lock, User, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useLoggedUser } from "../../context/useLoggedUser";
 
 import { useLogin } from "../../utils/queries";
@@ -13,6 +13,8 @@ export function Login() {
   const [error, setError] = useState("");
   const { setUser } = useLoggedUser();
   const navigate = useNavigate();
+  const location = useLocation();
+  const aviso = (location.state as { aviso?: unknown } | null)?.aviso;
 
   const { mutateAsync: loginUser, isPending } = useLogin();
 
@@ -103,6 +105,18 @@ export function Login() {
                 />
               </div>
             </div>
+
+            {typeof aviso === "string" && aviso && !error && (
+              <div
+                role="status"
+                className="rounded-xl bg-emerald-500/15 p-3.5 border border-emerald-500/25 flex items-start gap-2.5"
+              >
+                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                <span className="text-xs text-emerald-200 font-medium">
+                  {aviso}
+                </span>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-xl bg-rose-500/15 p-3.5 border border-rose-500/25 flex items-start gap-2.5">

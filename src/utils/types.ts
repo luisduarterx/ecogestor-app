@@ -4,6 +4,8 @@ export type UserAuthenticated = {
   cargoID: number;
   permissoes: string[];
   email: string;
+  /** Senha provisória ou troca exigida pelo administrador: a sessão só pode trocar a senha. */
+  trocaSenhaObrigatoria: boolean;
 };
 export type LoginReponse = {
   user: UserAuthenticated;
@@ -20,6 +22,11 @@ export type SessionUserResponse = {
   };
   /** Nomes das permissões vigentes do cargo, em ordem alfabética. */
   permissoes: string[];
+  trocaSenhaObrigatoria: boolean;
+};
+export type AlterarSenhaInput = {
+  senhaAtual: string;
+  novaSenha: string;
 };
 export type ApiError = {
   nome: string;
