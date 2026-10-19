@@ -80,6 +80,31 @@ export function validarTrocaSenha(dados: DadosTrocaSenha): string | null {
   return null;
 }
 
+/** Senha provisória definida pelo administrador para outro usuário. */
+export function validarSenhaProvisoria({
+  senha,
+  confirmacao,
+  email,
+}: {
+  senha: string;
+  confirmacao: string;
+  email: string;
+}): string | null {
+  if (senha.length < TAMANHO_MINIMO_SENHA) {
+    return `A senha provisória deve ter pelo menos ${TAMANHO_MINIMO_SENHA} caracteres.`;
+  }
+  if (tamanhoEmBytes(senha) > TAMANHO_MAXIMO_SENHA_BYTES) {
+    return `A senha provisória deve ter no máximo ${TAMANHO_MAXIMO_SENHA_BYTES} bytes.`;
+  }
+  if (igualAoEmail(senha, email)) {
+    return "A senha provisória não pode ser igual ao e-mail do usuário.";
+  }
+  if (senha !== confirmacao) {
+    return "A confirmação não corresponde à senha provisória.";
+  }
+  return null;
+}
+
 /** Iniciais exibidas no avatar, no mesmo padrão do cabeçalho: dois primeiros nomes. */
 export function iniciaisDoNome(nome: string) {
   const iniciais = nome
