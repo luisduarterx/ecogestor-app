@@ -24,6 +24,20 @@ export type SessionUserResponse = {
   permissoes: string[];
   trocaSenhaObrigatoria: boolean;
 };
+/** Dados do próprio usuário na página "Meu perfil" (`/auth/perfil`). */
+export type PerfilResponse = {
+  id: number;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  cargo: { id: number; nome: string };
+};
+export type AtualizarPerfilInput = {
+  nome?: string;
+  email?: string;
+  /** Obrigatória quando o e-mail muda: o e-mail é o login. */
+  senhaAtual?: string;
+};
 export type AlterarSenhaInput = {
   senhaAtual: string;
   novaSenha: string;

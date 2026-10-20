@@ -17,8 +17,8 @@ import {
 import { useLoggedUser } from "../../context/useLoggedUser";
 
 /**
- * Troca voluntária da própria senha. Não depende das permissões de
- * configuração do sistema: todo usuário autenticado pode trocar a senha.
+ * Troca voluntária da própria senha, na página "Meu perfil". Todo usuário
+ * autenticado pode trocar a senha, sem permissão de cargo.
  */
 export function AlterarSenha() {
   const { user, logout } = useLoggedUser();
@@ -56,7 +56,7 @@ export function AlterarSenha() {
   return (
     <section
       aria-labelledby="alterar-senha-titulo"
-      className="mt-6 space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-6"
+      className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-6"
     >
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
         <KeyRound className="h-5 w-5 text-emerald-400" />

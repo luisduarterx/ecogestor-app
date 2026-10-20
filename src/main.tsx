@@ -20,6 +20,7 @@ import { Usuarios } from "./pages/usuarios/index.tsx";
 import { GuestRoute } from "./pages/GuestRoute.tsx";
 import { NotFound } from "./pages/not-found/index.tsx";
 import { Configuracoes } from "./pages/configuracoes/index.tsx";
+import { Perfil } from "./pages/perfil/index.tsx";
 import { Fiscal } from "./pages/fiscal/index.tsx";
 import { NotaFiscalPagina } from "./pages/fiscal/NotaFiscalPagina.tsx";
 
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
       {
         path: "/configuracoes",
         element: <Configuracoes />,
+      },
+      {
+        path: "/perfil",
+        element: <Perfil />,
       },
       {
         path: "/fiscal",

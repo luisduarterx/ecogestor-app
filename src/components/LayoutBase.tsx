@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
 import { useLogout } from "../utils/queries";
 import type { ApiError } from "../utils/types";
+import { MenuUsuario } from "./MenuUsuario";
 import Sidebar from "./SideBar";
 
 interface LayoutProps {
@@ -78,17 +79,11 @@ export const LayoutBase = ({ children, activeTab, pageTitle }: LayoutProps) => {
               <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
             </button>
 
-            {/* Operator Quick Profile */}
-            <div className="flex items-center gap-2.5 border-l border-slate-800 pl-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-slate-200">
-                  {user?.nome ?? "Operador"}
-                </p>
-              </div>
-              <div className="h-8.5 w-8.5 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-semibold font-mono text-sm shadow-sm select-none uppercase">
-                {userInitials}
-              </div>
-            </div>
+            <MenuUsuario
+              nome={user?.nome ?? "Operador"}
+              iniciais={userInitials}
+              onSair={() => void handleLogout()}
+            />
           </div>
         </header>
 

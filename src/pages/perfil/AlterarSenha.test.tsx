@@ -39,10 +39,10 @@ function renderizar(user: UserAuthenticated | null = usuarioLogado) {
     <LoggedUserContext.Provider
       value={{ user, setUser: vi.fn(), logout, isAuthenticated: !!user }}
     >
-      <MemoryRouter initialEntries={["/configuracoes"]}>
+      <MemoryRouter initialEntries={["/perfil"]}>
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/configuracoes" element={<AlterarSenha />} />
+          <Route path="/perfil" element={<AlterarSenha />} />
         </Routes>
       </MemoryRouter>
     </LoggedUserContext.Provider>,
