@@ -47,7 +47,11 @@ export default mergeConfig(
           "src/components/senha/RequisitosSenha.tsx": { 100: true },
           "src/components/senha/useFormularioTrocaSenha.ts": { 100: true },
           "src/components/modals/TrocaSenhaObrigatoriaModal.tsx": { 100: true },
-          "src/pages/configuracoes/AlterarSenha.tsx": { 100: true },
+          "src/pages/perfil/AlterarSenha.tsx": { 100: true },
+          "src/pages/perfil/index.tsx": { 100: true },
+          "src/pages/perfil/DadosPessoais.tsx": { 100: true },
+          "src/utils/perfil.ts": { 100: true },
+          "src/components/MenuUsuario.tsx": { 100: true },
           "src/components/modals/SenhaUsuarioModal.tsx": { 100: true },
           "src/context/QueryClient.tsx": {
             statements: 90,

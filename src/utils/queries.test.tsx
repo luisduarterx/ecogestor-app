@@ -9,7 +9,9 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { api } from "./api";
 import {
   useAlterarSenha,
+  useAtualizarPerfil,
   useExigirTrocaSenhaUsuario,
+  usePerfil,
   useRedefinirSenhaUsuario,
   useSession,
 } from "./queries";
@@ -20,6 +22,7 @@ vi.mock("./api", () => ({
 
 const post = api.post as Mock;
 const patch = api.patch as Mock;
+const get = api.get as Mock;
 
 const usuario = {
   id: 7,
@@ -189,5 +192,66 @@ describe("ações de senha do administrador", () => {
     expect(post).toHaveBeenCalledWith("/usuarios/9/exigir-troca-senha");
     expect(invalidar).toHaveBeenCalledTimes(1);
     expect(invalidar).toHaveBeenCalledWith({ queryKey: ["usuario", 9] });
+  });
+});
+
+describe("perfil do próprio usuário", () => {
+  const perfil = {
+    id: 7,
+    nome: "ROBERTO RAMOS",
+    email: "novo@ecogestor.test",
+    telefone: null,
+    cargo: { id: 2, nome: "OPERADOR" },
+  };
+
+  it("busca o perfil em auth/perfil", async () => {
+    get.mockResolvedValue({ data: perfil });
+    const { wrapper } = criarAmbiente();
+
+    const { result } = renderHook(() => usePerfil(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(get).toHaveBeenCalledWith("auth/perfil");
+    expect(result.current.data).toEqual(perfil);
+  });
+
+  it("atualiza o perfil, a sessão em cache e invalida os usuários", async () => {
+    patch.mockResolvedValue({ data: perfil });
+    const { queryClient, wrapper } = criarAmbiente();
+    queryClient.setQueryData(["auth", "session"], usuario);
+    const invalidar = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useAtualizarPerfil(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({
+        email: "novo@ecogestor.test",
+        senhaAtual: "segredo",
+      });
+    });
+
+    expect(patch).toHaveBeenCalledWith("auth/perfil", {
+      email: "novo@ecogestor.test",
+      senhaAtual: "segredo",
+    });
+    expect(queryClient.getQueryData(["perfil"])).toEqual(perfil);
+    expect(queryClient.getQueryData(["auth", "session"])).toEqual({
+      ...usuario,
+      nome: "ROBERTO RAMOS",
+      email: "novo@ecogestor.test",
+    });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["usuarios"] });
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["usuario", 7] });
+  });
+
+  it("não cria sessão em cache quando não havia uma", async () => {
+    patch.mockResolvedValue({ data: perfil });
+    const { queryClient, wrapper } = criarAmbiente();
+
+    const { result } = renderHook(() => useAtualizarPerfil(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ nome: "Roberto Ramos" });
+    });
+
+    expect(queryClient.getQueryData(["auth", "session"])).toBeUndefined();
   });
 });

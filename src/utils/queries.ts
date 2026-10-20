@@ -29,6 +29,8 @@ import {
   type UserAuthenticated,
   type LoginReponse,
   type AlterarSenhaInput,
+  type AtualizarPerfilInput,
+  type PerfilResponse,
   type SessionUserResponse,
   type MaterialResponse,
   type MaterialCategoryResponse,
@@ -159,6 +161,35 @@ export function useLogout() {
     },
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: ["auth"] });
+    },
+  });
+}
+export function usePerfil() {
+  return useQuery<PerfilResponse, ApiError>({
+    queryKey: ["perfil"],
+    queryFn: async () => (await api.get<PerfilResponse>("auth/perfil")).data,
+  });
+}
+
+/**
+ * Edita o próprio nome e e-mail. A sessão em cache é atualizada para o
+ * cabeçalho refletir a mudança sem nova validação.
+ */
+export function useAtualizarPerfil() {
+  const queryClient = useQueryClient();
+
+  return useMutation<PerfilResponse, ApiError, AtualizarPerfilInput>({
+    mutationFn: async (input) =>
+      (await api.patch<PerfilResponse>("auth/perfil", input)).data,
+    onSuccess: (perfil) => {
+      queryClient.setQueryData(["perfil"], perfil);
+      queryClient.setQueryData<UserAuthenticated>(
+        ["auth", "session"],
+        (sessao) =>
+          sessao && { ...sessao, nome: perfil.nome, email: perfil.email },
+      );
+      void queryClient.invalidateQueries({ queryKey: ["usuarios"] });
+      void queryClient.invalidateQueries({ queryKey: ["usuario", perfil.id] });
     },
   });
 }
