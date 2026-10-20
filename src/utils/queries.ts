@@ -54,6 +54,8 @@ import {
   type SaveRoleInput,
   type AtualizarUsuarioInput,
   type CriarUsuarioInput,
+  type RedefinirSenhaUsuarioInput,
+  type TrocaSenhaUsuarioResponse,
   type UserManagementDetail,
   type UserManagementResponse,
   type UpdatedMaterialResponse,
@@ -1162,6 +1164,41 @@ export function useUser(userID?: number) {
       );
       return data;
     },
+  });
+}
+
+// As ações de senha não mudam os dados exibidos na listagem; basta invalidar o
+// detalhe do usuário afetado.
+export function useRedefinirSenhaUsuario() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    TrocaSenhaUsuarioResponse,
+    ApiError,
+    RedefinirSenhaUsuarioInput
+  >({
+    mutationFn: async ({ userID, senhaProvisoria }) =>
+      (
+        await api.post<TrocaSenhaUsuarioResponse>(
+          `/usuarios/${userID}/redefinir-senha`,
+          { senhaProvisoria },
+        )
+      ).data,
+    onSuccess: (_resposta, { userID }) =>
+      queryClient.invalidateQueries({ queryKey: ["usuario", userID] }),
+  });
+}
+
+export function useExigirTrocaSenhaUsuario() {
+  const queryClient = useQueryClient();
+  return useMutation<TrocaSenhaUsuarioResponse, ApiError, number>({
+    mutationFn: async (userID) =>
+      (
+        await api.post<TrocaSenhaUsuarioResponse>(
+          `/usuarios/${userID}/exigir-troca-senha`,
+        )
+      ).data,
+    onSuccess: (_resposta, userID) =>
+      queryClient.invalidateQueries({ queryKey: ["usuario", userID] }),
   });
 }
 

@@ -7,7 +7,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { api } from "./api";
-import { useAlterarSenha, useSession } from "./queries";
+import {
+  useAlterarSenha,
+  useExigirTrocaSenhaUsuario,
+  useRedefinirSenhaUsuario,
+  useSession,
+} from "./queries";
 
 vi.mock("./api", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -141,5 +146,48 @@ describe("useAlterarSenha", () => {
     });
     expect(post).not.toHaveBeenCalled();
     expect(result.current.sessao.data).toEqual(usuario);
+  });
+});
+
+describe("ações de senha do administrador", () => {
+  it("define a senha provisória e invalida só o detalhe do usuário", async () => {
+    post.mockResolvedValue({ data: { id: 9, trocaSenhaObrigatoria: true } });
+    const { queryClient, wrapper } = criarAmbiente();
+    const invalidar = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useRedefinirSenhaUsuario(), {
+      wrapper,
+    });
+    let resposta: Awaited<ReturnType<typeof result.current.mutateAsync>>;
+    await act(async () => {
+      resposta = await result.current.mutateAsync({
+        userID: 9,
+        senhaProvisoria: "provisoria-123",
+      });
+    });
+
+    expect(post).toHaveBeenCalledWith("/usuarios/9/redefinir-senha", {
+      senhaProvisoria: "provisoria-123",
+    });
+    expect(resposta!).toEqual({ id: 9, trocaSenhaObrigatoria: true });
+    expect(invalidar).toHaveBeenCalledTimes(1);
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["usuario", 9] });
+  });
+
+  it("exige a troca sem enviar corpo e invalida só o detalhe do usuário", async () => {
+    post.mockResolvedValue({ data: { id: 9, trocaSenhaObrigatoria: true } });
+    const { queryClient, wrapper } = criarAmbiente();
+    const invalidar = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useExigirTrocaSenhaUsuario(), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.mutateAsync(9);
+    });
+
+    expect(post).toHaveBeenCalledWith("/usuarios/9/exigir-troca-senha");
+    expect(invalidar).toHaveBeenCalledTimes(1);
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["usuario", 9] });
   });
 });

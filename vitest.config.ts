@@ -48,6 +48,7 @@ export default mergeConfig(
           "src/components/senha/useFormularioTrocaSenha.ts": { 100: true },
           "src/components/modals/TrocaSenhaObrigatoriaModal.tsx": { 100: true },
           "src/pages/configuracoes/AlterarSenha.tsx": { 100: true },
+          "src/components/modals/SenhaUsuarioModal.tsx": { 100: true },
           "src/context/QueryClient.tsx": {
             statements: 90,
             branches: 75,

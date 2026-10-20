@@ -682,6 +682,15 @@ export type AtualizarUsuarioInput = {
 export type CriarUsuarioInput = AtualizarUsuarioInput & {
   senha: string;
 };
+export type RedefinirSenhaUsuarioInput = {
+  userID: number;
+  senhaProvisoria: string;
+};
+/** Resposta das ações do administrador sobre a senha de outro usuário. */
+export type TrocaSenhaUsuarioResponse = {
+  id: number;
+  trocaSenhaObrigatoria: boolean;
+};
 export type SaveRoleInput = {
   nome: string;
   permissoes: number[];

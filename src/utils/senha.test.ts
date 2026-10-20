@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   iniciaisDoNome,
   requisitosNovaSenha,
+  validarSenhaProvisoria,
   validarTrocaSenha,
   type DadosTrocaSenha,
 } from "./senha";
@@ -100,6 +101,49 @@ describe("validarTrocaSenha", () => {
     ],
   ])("recusa %s", (_caso, parcial, mensagem) => {
     expect(validarTrocaSenha(dados(parcial))).toBe(mensagem);
+  });
+});
+
+describe("validarSenhaProvisoria", () => {
+  const provisoria = (
+    parcial: Partial<{ senha: string; confirmacao: string }>,
+  ) => ({
+    senha: "provisoria-123",
+    confirmacao: "provisoria-123",
+    email: "operador@ecogestor.test",
+    ...parcial,
+  });
+
+  it("aceita uma senha provisória válida", () => {
+    expect(validarSenhaProvisoria(provisoria({}))).toBeNull();
+  });
+
+  it.each<[string, Partial<{ senha: string; confirmacao: string }>, string]>([
+    [
+      "senha curta",
+      { senha: "curta", confirmacao: "curta" },
+      "A senha provisória deve ter pelo menos 10 caracteres.",
+    ],
+    [
+      "senha acima de 72 bytes",
+      { senha: "é".repeat(37), confirmacao: "é".repeat(37) },
+      "A senha provisória deve ter no máximo 72 bytes.",
+    ],
+    [
+      "senha igual ao e-mail",
+      {
+        senha: "OPERADOR@ecogestor.test",
+        confirmacao: "OPERADOR@ecogestor.test",
+      },
+      "A senha provisória não pode ser igual ao e-mail do usuário.",
+    ],
+    [
+      "confirmação diferente",
+      { confirmacao: "outra-senha-123" },
+      "A confirmação não corresponde à senha provisória.",
+    ],
+  ])("recusa %s", (_caso, parcial, mensagem) => {
+    expect(validarSenhaProvisoria(provisoria(parcial))).toBe(mensagem);
   });
 });
 
