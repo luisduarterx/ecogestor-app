@@ -42,6 +42,13 @@ export default mergeConfig(
           },
           "src/pages/ProtectedRoutes.tsx": { 100: true },
           "src/pages/GuestRoute.tsx": { 100: true },
+          "src/utils/senha.ts": { 100: true },
+          "src/components/senha/CampoSenha.tsx": { 100: true },
+          "src/components/senha/RequisitosSenha.tsx": { 100: true },
+          "src/components/senha/useFormularioTrocaSenha.ts": { 100: true },
+          "src/components/modals/TrocaSenhaObrigatoriaModal.tsx": { 100: true },
+          "src/pages/configuracoes/AlterarSenha.tsx": { 100: true },
+          "src/components/modals/SenhaUsuarioModal.tsx": { 100: true },
           "src/context/QueryClient.tsx": {
             statements: 90,
             branches: 75,

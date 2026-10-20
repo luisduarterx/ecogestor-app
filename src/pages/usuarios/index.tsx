@@ -2,8 +2,10 @@ import {
   CheckCircle2,
   Edit3,
   Key,
+  KeyRound,
   Search,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   UserCog,
@@ -16,7 +18,11 @@ import { useMemo, useState } from "react";
 import { LayoutBase } from "../../components/LayoutBase";
 import NewRoleModal from "../../components/modals/NewRoleModal";
 import NewUserModal from "../../components/modals/NewUserModal";
+import SenhaUsuarioModal, {
+  type AcaoSenhaUsuario,
+} from "../../components/modals/SenhaUsuarioModal";
 import { useLoggedUser } from "../../context/useLoggedUser";
+import { temPermissao } from "../../utils/autorizacao";
 import {
   useDeleteRole,
   useDeleteUser,
@@ -30,6 +36,8 @@ import type {
   RoleResponse,
   UserManagementResponse,
 } from "../../utils/types";
+
+const PERMISSAO_SENHA_USUARIO = "update:senha_usuario";
 
 export function Usuarios() {
   const [activeSubTab, setActiveSubTab] = useState<"users" | "roles">("users");
@@ -47,7 +55,12 @@ export function Usuarios() {
     name: string;
   } | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [acaoSenha, setAcaoSenha] = useState<{
+    acao: AcaoSenhaUsuario;
+    usuario: UserManagementResponse;
+  } | null>(null);
   const { user: loggedUser } = useLoggedUser();
+  const podeGerenciarSenhas = temPermissao(loggedUser, PERMISSAO_SENHA_USUARIO);
   const usersQuery = useUsers();
   const rolesQuery = useRoles();
   const roleIDs = useMemo(
@@ -329,6 +342,40 @@ export function Usuarios() {
                                 >
                                   <Edit3 className="h-3.5 w-3.5" />
                                 </button>
+                                {/* O próprio administrador troca a senha em Configurações. */}
+                                {podeGerenciarSenhas &&
+                                  item.id !== loggedUser?.id && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setAcaoSenha({
+                                            acao: "redefinir",
+                                            usuario: item,
+                                          })
+                                        }
+                                        title="Definir senha provisória"
+                                        aria-label={`Definir senha provisória de ${item.nome}`}
+                                        className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-amber-500/20 hover:text-amber-400"
+                                      >
+                                        <KeyRound className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setAcaoSenha({
+                                            acao: "exigir",
+                                            usuario: item,
+                                          })
+                                        }
+                                        title="Exigir troca de senha"
+                                        aria-label={`Exigir troca de senha de ${item.nome}`}
+                                        className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-slate-300 hover:bg-amber-500/20 hover:text-amber-400"
+                                      >
+                                        <ShieldAlert className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  )}
                                 <button
                                   type="button"
                                   disabled={item.id === loggedUser?.id}
@@ -489,6 +536,17 @@ export function Usuarios() {
           onClose={() => {
             setRoleModalOpen(false);
             setEditingRole(null);
+          }}
+        />
+      )}
+      {acaoSenha && (
+        <SenhaUsuarioModal
+          acao={acaoSenha.acao}
+          usuario={acaoSenha.usuario}
+          onClose={() => setAcaoSenha(null)}
+          onConcluido={(mensagem) => {
+            setFeedback(mensagem);
+            setAcaoSenha(null);
           }}
         />
       )}

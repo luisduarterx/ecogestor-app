@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import { useLoggedUser } from "../context/useLoggedUser";
 import { useSession } from "../utils/queries";
 import { useEffect } from "react";
+import { TrocaSenhaObrigatoriaModal } from "../components/modals/TrocaSenhaObrigatoriaModal";
 
 export function ProtectedRoute() {
   const { setUser, logout } = useLoggedUser();
@@ -22,6 +23,11 @@ export function ProtectedRoute() {
 
   if (session.isError) {
     return <Navigate to={"/"} replace state={{ from: location.pathname }} />;
+  }
+
+  // Com troca pendente a API recusa as demais rotas: as páginas nem montam.
+  if (session.data?.trocaSenhaObrigatoria) {
+    return <TrocaSenhaObrigatoriaModal usuario={session.data} />;
   }
 
   return <Outlet />;

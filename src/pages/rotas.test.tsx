@@ -7,6 +7,11 @@ import { GuestRoute } from "./GuestRoute";
 import { ProtectedRoute } from "./ProtectedRoutes";
 
 vi.mock("../utils/queries", () => ({ useSession: vi.fn() }));
+vi.mock("../components/modals/TrocaSenhaObrigatoriaModal", () => ({
+  TrocaSenhaObrigatoriaModal: ({ usuario }: { usuario: { nome: string } }) => (
+    <p>Troca obrigatória de {usuario.nome}</p>
+  ),
+}));
 
 const usuario = {
   id: 1,
@@ -14,6 +19,7 @@ const usuario = {
   email: "admin@ecogestor.test",
   cargoID: 1,
   permissoes: ["read:pedido"],
+  trocaSenhaObrigatoria: false,
 };
 
 type EstadoSessao = "carregando" | "valida" | "invalida";
@@ -74,6 +80,20 @@ describe("ProtectedRoute", () => {
     renderizar("/pedidos");
     expect(screen.getByText("Pedidos")).toBeInTheDocument();
     expect(setUser).toHaveBeenCalledWith(usuario);
+  });
+
+  it("exibe só a troca obrigatória quando a senha precisa ser trocada", () => {
+    const pendente = { ...usuario, trocaSenhaObrigatoria: true };
+    (useSession as Mock).mockReturnValue({
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      data: pendente,
+    });
+    renderizar("/pedidos");
+    expect(screen.getByText("Troca obrigatória de Admin")).toBeInTheDocument();
+    expect(screen.queryByText("Pedidos")).not.toBeInTheDocument();
+    expect(setUser).toHaveBeenCalledWith(pendente);
   });
 
   it("leva ao login, lembrando a origem, quando a sessão é inválida", () => {
